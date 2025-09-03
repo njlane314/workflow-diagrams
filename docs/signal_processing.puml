@@ -1,4 +1,7 @@
 @startuml SignalProcessing
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #2E86AB
 title LArSoft Signal Processing
 
 skinparam componentStyle rectangle
