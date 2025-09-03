@@ -1,4 +1,13 @@
 @startuml LArSoft_Activity
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #2E86AB
+skinparam activity {
+  BackgroundColor #FDFDFD
+  BarColor #2E86AB
+  StartColor #2E86AB
+  EndColor #2E86AB
+}
 start
 :Read raw::RawDigit;
 :Produce recob::Wire (SignalProcessing);
