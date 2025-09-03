@@ -1,0 +1,44 @@
+name: plantuml
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'docs/**/*.puml'
+      - '.github/workflows/plantuml.yml'
+
+permissions:
+  contents: write   
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        
+          persist-credentials: true
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y graphviz plantuml
+
+      - run: |
+          find docs -name '*.puml' -exec plantuml {} \;
+
+      - name: Commit diagrams
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -f docs
+          git commit -m "[skip ci] chore: update diagrams" || echo "No changes"
+          git push
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: diagrams
+          path: docs
