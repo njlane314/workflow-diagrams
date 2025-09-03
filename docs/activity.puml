@@ -1,4 +1,11 @@
 @startuml LArSoft_Activity
+!include style.puml
+skinparam activity {
+  BackgroundColor #FDFDFD
+  BarColor #2E86AB
+  StartColor #2E86AB
+  EndColor #2E86AB
+}
 start
 :Read raw::RawDigit;
 :Produce recob::Wire (SignalProcessing);

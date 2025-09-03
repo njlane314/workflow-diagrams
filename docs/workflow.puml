@@ -1,4 +1,5 @@
 @startuml LArSoft_Workflow
+!include style.puml
 title LArSoft Reconstruction – Component View
 
 skinparam componentStyle rectangle

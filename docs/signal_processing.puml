@@ -1,4 +1,5 @@
 @startuml SignalProcessing
+!include style.puml
 title LArSoft Signal Processing
 
 skinparam componentStyle rectangle

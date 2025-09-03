@@ -1,0 +1,4 @@
+' Common styling for LArSoft PlantUML diagrams
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #2E86AB

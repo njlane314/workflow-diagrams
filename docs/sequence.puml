@@ -1,4 +1,9 @@
 @startuml LArSoft_Sequence
+!include style.puml
+skinparam sequence {
+  LifeLineBorderColor #2E86AB
+  LifeLineBackgroundColor #FDFDFD
+}
 autonumber
 actor "art::Event" as E
 participant "SignalProcessing" as SP <<Producer>>

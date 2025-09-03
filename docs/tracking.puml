@@ -1,4 +1,5 @@
 @startuml Tracking
+!include style.puml
 title LArSoft Tracking
 
 skinparam componentStyle rectangle

@@ -1,4 +1,5 @@
 @startuml PatternRecognition
+!include style.puml
 title LArSoft Pattern Recognition
 
 skinparam componentStyle rectangle
