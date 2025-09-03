@@ -1,0 +1,34 @@
+@startuml Analysis
+title LArSoft Analysis
+
+skinparam componentStyle rectangle
+skinparam stereotype {
+  CBackgroundColor<<Producer>> #DFF5E1
+  CBackgroundColor<<Filter>>   #FFEBD6
+  CBackgroundColor<<Analyzer>> #E7E9FF
+}
+skinparam rectangle {
+  BorderColor #888
+  RoundCorner 8
+}
+
+legend left
+  <<Filter>>   gates the path
+  <<Analyzer>> reads/writes analysis outputs
+  (dp)         data product type
+endlegend
+
+package "Event (art::Event)" {
+  () "recob::Track/recob::Shower" as TrSh
+  () "anab::Calorimetry" as Calo
+}
+
+component "MySelection"    <<Filter>>   as MySel
+component "AnalysisNtuple" <<Analyzer>> as Ana
+
+TrSh  -up-> MySel : reads
+Calo  -up-> MySel : reads
+MySel -right-> Ana : passes
+
+@enduml
+

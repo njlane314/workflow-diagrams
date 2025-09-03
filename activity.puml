@@ -1,13 +1,28 @@
 @startuml LArSoft_Activity
+title LArSoft Reconstruction – Activity View
+
+skinparam stereotype {
+  CBackgroundColor<<Producer>> #DFF5E1
+  CBackgroundColor<<Filter>>   #FFEBD6
+  CBackgroundColor<<Analyzer>> #E7E9FF
+}
+
+legend left
+  <<Producer>> produces data products
+  <<Filter>>   gates the path
+  <<Analyzer>> reads/writes analysis outputs
+endlegend
+
 start
 :Read raw::RawDigit;
-:Produce recob::Wire (SignalProcessing);
-:Produce recob::Hit (HitFinding);
-:Produce recob::Cluster (Clustering);
-:PFParticle reconstruction (Pandora);
-:Track/Shower reconstruction;
+:Produce recob::Wire (SignalProcessing) <<Producer>>;
+:Produce recob::Hit (HitFinding) <<Producer>>;
+:Produce recob::Cluster (Clustering) <<Producer>>;
+:PFParticle reconstruction (Pandora) <<Producer>>;
+:Track/Shower reconstruction <<Producer>>;
+:Run MySelection <<Filter>>;
 if (Selection passes?) then (yes)
-  :Write ntuple (Analysis);
+  :Write ntuple (Analysis) <<Analyzer>>;
 else (no)
   :Drop event;
 endif

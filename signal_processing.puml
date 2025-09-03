@@ -1,0 +1,36 @@
+@startuml SignalProcessing
+title LArSoft Signal Processing
+
+skinparam componentStyle rectangle
+skinparam stereotype {
+  CBackgroundColor<<Producer>> #DFF5E1
+  CBackgroundColor<<Filter>>   #FFEBD6
+  CBackgroundColor<<Analyzer>> #E7E9FF
+}
+skinparam rectangle {
+  BorderColor #888
+  RoundCorner 8
+}
+
+legend left
+  <<Producer>>  makes data products
+  (dp)          data product type
+endlegend
+
+package "Event (art::Event)" {
+  () "raw::RawDigit" as RawDigit
+  () "recob::Wire"   as Wire
+  () "recob::Hit"    as Hit
+}
+
+component "SignalProcessing" <<Producer>> as SigProc
+component "HitFinding"      <<Producer>> as HitFinder
+
+RawDigit -up-> SigProc : reads
+SigProc   -down-> Wire : produces
+
+Wire      -up-> HitFinder : reads
+HitFinder -down-> Hit : produces
+
+@enduml
+

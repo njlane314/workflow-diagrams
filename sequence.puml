@@ -1,5 +1,18 @@
 @startuml LArSoft_Sequence
 autonumber
+
+skinparam stereotype {
+  CBackgroundColor<<Producer>> #DFF5E1
+  CBackgroundColor<<Filter>>   #FFEBD6
+  CBackgroundColor<<Analyzer>> #E7E9FF
+}
+
+legend left
+  <<Producer>>  makes data products
+  <<Filter>>    gates the path
+  <<Analyzer>>  reads/writes outputs
+endlegend
+
 actor "art::Event" as E
 participant "SignalProcessing" as SP <<Producer>>
 participant "HitFinding" as HF <<Producer>>
