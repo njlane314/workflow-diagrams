@@ -1,0 +1,28 @@
+@startuml LArSoft_Sequence
+autonumber
+actor "art::Event" as E
+participant "SignalProcessing" as SP <<Producer>>
+participant "HitFinding" as HF <<Producer>>
+participant "Clustering" as CL <<Producer>>
+participant "Pandora" as PA <<Producer>>
+participant "Track/Shower" as TS <<Producer>>
+participant "MySelection" as SEL <<Filter>>
+participant "AnalysisNtuple" as AN <<Analyzer>>
+
+E -> SP: getByLabel<raw::RawDigit>()
+SP --> E: put(recob::Wire)
+E -> HF: getByLabel<recob::Wire>()
+HF --> E: put(recob::Hit)
+E -> CL: getByLabel<recob::Hit>()
+CL --> E: put(recob::Cluster)
+E -> PA: getByLabel<recob::Hit, recob::Cluster>()
+PA --> E: put(recob::PFParticle, Associations)
+E -> TS: getByLabel<recob::PFParticle>()
+TS --> E: put(recob::Track/Shower)
+E -> SEL: getByLabel<recob::Track/Shower>()
+alt pass
+  SEL -> AN: analyze(event)
+else fail
+  SEL --> E: filter=false (event dropped)
+end
+@enduml
