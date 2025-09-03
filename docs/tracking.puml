@@ -1,4 +1,7 @@
 @startuml Tracking
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #2E86AB
 title LArSoft Tracking
 
 skinparam componentStyle rectangle
