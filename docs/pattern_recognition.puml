@@ -1,4 +1,7 @@
 @startuml PatternRecognition
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #2E86AB
 title LArSoft Pattern Recognition
 
 skinparam componentStyle rectangle
