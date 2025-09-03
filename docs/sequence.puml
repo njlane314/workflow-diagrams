@@ -1,4 +1,11 @@
 @startuml LArSoft_Sequence
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam sequence {
+  ArrowColor #2E86AB
+  LifeLineBorderColor #2E86AB
+  LifeLineBackgroundColor #FDFDFD
+}
 autonumber
 actor "art::Event" as E
 participant "SignalProcessing" as SP <<Producer>>
