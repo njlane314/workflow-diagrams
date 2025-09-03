@@ -1,4 +1,7 @@
 @startuml LArSoft_Workflow
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam ArrowColor #2E86AB
 title LArSoft Reconstruction – Component View
 
 skinparam componentStyle rectangle
