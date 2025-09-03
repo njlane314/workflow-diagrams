@@ -1,0 +1,15 @@
+@startuml LArSoft_Activity
+start
+:Read raw::RawDigit;
+:Produce recob::Wire (SignalProcessing);
+:Produce recob::Hit (HitFinding);
+:Produce recob::Cluster (Clustering);
+:PFParticle reconstruction (Pandora);
+:Track/Shower reconstruction;
+if (Selection passes?) then (yes)
+  :Write ntuple (Analysis);
+else (no)
+  :Drop event;
+endif
+stop
+@enduml
