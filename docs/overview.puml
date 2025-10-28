@@ -65,6 +65,9 @@ package "Imaging" as PKG_IMAGING {
     + view()/height()/width() : ...
   }
 
+  ' concrete node for dependencies that use Image<float>
+  class "image::Image<float>" as ImageFloat <<template>>
+
   class "image::SemanticPixelClassifier" as SPC {
     + getSemanticLabel(pdg:int) : SemanticLabel
     + classifyParticles(event) : std::vector<SemanticLabel>
@@ -193,39 +196,39 @@ package "Reco & Sim (external)" as PKG_RECO {
 }
 
 ' -------- relationships (class diagram) ---------------------
-ImageT *-- ImageProps : «composition»
+ImageT *-- ImageProps : <<composition>>
 ImageProps --> ViewT : uses
 PlaneImage --> ViewT : view
 
 SPC -down-> SemanticLabel : defines
-ImageAlgo ..> ImgProducerHelper : «calls static»
-ImageAlgo ..> SPC : «uses»
-ImageAlgo ..> GeoCore : «uses»
-ImageAlgo ..> DetProp : «uses»
-ImgProducerHelper ..> RecobWire : «reads»
-ImgProducerHelper ..> RecobHit  : «reads»
-ImgProducerHelper ..> MCP       : «assocs»
-ImgProducerHelper ..> SPC       : «labels»
-ImgProducerHelper ..> GeoCore   : «geometry»
-ImgProducerHelper ..> DetProp   : «tick→x»
+ImageAlgo ..> ImgProducerHelper : <<calls static>>
+ImageAlgo ..> SPC : <<uses>>
+ImageAlgo ..> GeoCore : <<uses>>
+ImageAlgo ..> DetProp : <<uses>>
+ImgProducerHelper ..> RecobWire : <<reads>>
+ImgProducerHelper ..> RecobHit  : <<reads>>
+ImgProducerHelper ..> MCP       : <<assocs>>
+ImgProducerHelper ..> SPC       : <<labels>>
+ImgProducerHelper ..> GeoCore   : <<geometry>>
+ImgProducerHelper ..> DetProp   : tick->x
 
-InferenceEngine ..> "Image<float>" as ImageFloat : «inputs»
+InferenceEngine ..> ImageFloat : inputs
 InferenceEngine *-- IEResult
 InferenceEngine *-- IEPerf
 
-ImageProducerModule o--> ImageAlgo : «owns»
-ImageProducerModule o--> SPC : «owns»
-ImageProducerModule ..> PlaneImage : «produces slice/event»
-ImageProducerModule ..> ArtEvent   : «framework IO»
+ImageProducerModule o--> ImageAlgo : <<owns>>
+ImageProducerModule o--> SPC : <<owns>>
+ImageProducerModule ..> PlaneImage : produces slice/event
+ImageProducerModule ..> ArtEvent   : framework IO
 
-ImageAnalysis ..> PlaneImage : «consumes slice/event»
-ImageAnalysis ..> ArtEvent    : «framework IO»
+ImageAnalysis ..> PlaneImage : consumes slice/event
+ImageAnalysis ..> ArtEvent    : framework IO
 
 ' -------- layout helpers & notes ----------------------------
 note right of ImageProps
   Defines pixel grid in (X,Z) or (X,wire)
-  for a single TPC view.
-  Provides row/col mapping + bounds.
+  for a single TPC view. Provides row/col
+  mapping and bounds checks.
 end note
 
 note right of ImageAlgo
@@ -235,9 +238,9 @@ end note
 
 note bottom of ImgProducerHelper
   Static utility that:
-  • scans wires and their ROI
-  • thresholds ADC to detector image
-  • assigns semantic labels (MC truth)
+  - scans wires and their ROI
+  - thresholds ADC to detector image
+  - assigns semantic labels (MC truth)
 end note
 
 legend right
@@ -280,9 +283,9 @@ activate Helper
 Helper -> Ev : getValidHandle<recob::Wire/Hit/MCP>()
 Helper -> Cls : (if MC) classifyParticles(Ev)
 loop for each wire
-  Helper -> Geo : ChannelToWire/ View / WirePtr
+  Helper -> Geo : ChannelToWire / View / WirePtr
   Helper -> Detp : ConvertTicksToX(tick, plane)
-  Helper -> Helper : fillDetectorImage(...)\n(labelSemanticPixels if MC)
+  Helper -> Helper : fillDetectorImage(...)\nlabelSemanticPixels(...)
 end
 Helper --> Algo : detImgs[3], semImgs[3]
 deactivate Helper
