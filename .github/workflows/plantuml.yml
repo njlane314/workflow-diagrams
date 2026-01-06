@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'docs/**/*.puml'
+      - 'docs/larsoft_on_art.puml'
       - '.github/workflows/plantuml.yml'
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
       - run: sudo apt-get install -y graphviz plantuml
 
       - run: |
-          find docs -name '*.puml' -exec plantuml {} \;
+          plantuml docs/larsoft_on_art.puml
 
       - name: Commit diagrams
         run: |
