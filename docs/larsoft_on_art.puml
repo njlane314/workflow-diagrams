@@ -91,6 +91,12 @@ skinparam database<<data>> {
   FontColor #263238
 }
 
+skinparam artifact<<data>> {
+  BackgroundColor #FFFFFF
+  BorderColor #37474F
+  FontColor #263238
+}
+
 skinparam note {
   BackgroundColor #FFF3E0
   BorderColor #EF6C00
