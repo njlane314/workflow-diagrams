@@ -5,115 +5,135 @@
 ' If your renderer has layout issues, try commenting out the next line.
 !pragma layout smetana
 
+'
+' --- Technical engineering theme (minimal, clean) -----------------------------
+'
+!$INK     = "#111827"   ' near-black
+!$MUTED   = "#6B7280"   ' gray
+!$ART     = "#1D4ED8"   ' blue
+!$LAR     = "#15803D"   ' green
+!$EXP     = "#6D28D9"   ' violet
+!$EXT     = "#4B5563"   ' slate
+!$CFG     = "#B45309"   ' amber
+!$DATA    = "#111827"
+!$NOTE_BG = "#F9FAFB"
+!$NOTE_BR = "#9CA3AF"
+
 hide stereotype
 skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontColor $INK
 skinparam linetype ortho
-skinparam shadowing true
-skinparam roundCorner 14
+skinparam shadowing false
+skinparam roundCorner 0
 skinparam dpi 160
 skinparam defaultTextAlignment center
 skinparam nodesep 40
 skinparam ranksep 35
-skinparam ArrowThickness 1.3
-skinparam ArrowColor #2C3E50
+skinparam LineThickness 1
+skinparam ArrowThickness 1.1
+skinparam ArrowColor $INK
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
+skinparam legendBackgroundColor #FFFFFF
+skinparam legendBorderColor $NOTE_BR
+skinparam legendFontColor $INK
 
 ' --- Color palette via stereotypes -------------------------------------------
 skinparam actor<<cfg>> {
-  BackgroundColor #FFF8E1
-  BorderColor #FFB300
-  FontColor #5D4037
+  BackgroundColor #FFFFFF
+  BorderColor $CFG
+  FontColor $INK
 }
 skinparam artifact<<cfg>> {
-  BackgroundColor #FFFDE7
-  BorderColor #F9A825
-  FontColor #5D4037
+  BackgroundColor #FFFFFF
+  BorderColor $CFG
+  FontColor $INK
 }
 
 skinparam package<<art>> {
-  BackgroundColor #E3F2FD
-  BorderColor #1565C0
-  FontColor #0D47A1
+  BackgroundColor #FFFFFF
+  BorderColor $ART
+  FontColor $INK
 }
 skinparam component<<art>> {
-  BackgroundColor #E8F4FF
-  BorderColor #1565C0
-  FontColor #0D47A1
+  BackgroundColor #FFFFFF
+  BorderColor $ART
+  FontColor $INK
 }
 
 skinparam package<<larsoft>> {
-  BackgroundColor #E8F5E9
-  BorderColor #2E7D32
-  FontColor #1B5E20
+  BackgroundColor #FFFFFF
+  BorderColor $LAR
+  FontColor $INK
 }
 skinparam component<<larsoft>> {
-  BackgroundColor #F1F8E9
-  BorderColor #2E7D32
-  FontColor #1B5E20
+  BackgroundColor #FFFFFF
+  BorderColor $LAR
+  FontColor $INK
 }
 
 skinparam package<<exp>> {
-  BackgroundColor #F3E5F5
-  BorderColor #6A1B9A
-  FontColor #4A148C
+  BackgroundColor #FFFFFF
+  BorderColor $EXP
+  FontColor $INK
 }
 skinparam component<<exp>> {
-  BackgroundColor #FCE4EC
-  BorderColor #6A1B9A
-  FontColor #4A148C
+  BackgroundColor #FFFFFF
+  BorderColor $EXP
+  FontColor $INK
 }
 skinparam artifact<<exp>> {
-  BackgroundColor #F3E5F5
-  BorderColor #6A1B9A
-  FontColor #4A148C
+  BackgroundColor #FFFFFF
+  BorderColor $EXP
+  FontColor $INK
 }
 skinparam database<<exp>> {
-  BackgroundColor #F3E5F5
-  BorderColor #6A1B9A
-  FontColor #4A148C
+  BackgroundColor #FFFFFF
+  BorderColor $EXP
+  FontColor $INK
 }
 
 skinparam package<<ext>> {
-  BackgroundColor #ECEFF1
-  BorderColor #455A64
-  FontColor #263238
+  BackgroundColor #FFFFFF
+  BorderColor $EXT
+  FontColor $INK
 }
 skinparam component<<ext>> {
-  BackgroundColor #F5F5F5
-  BorderColor #455A64
-  FontColor #263238
+  BackgroundColor #FFFFFF
+  BorderColor $EXT
+  FontColor $INK
 }
 
 skinparam database<<data>> {
   BackgroundColor #FFFFFF
-  BorderColor #37474F
-  FontColor #263238
+  BorderColor $DATA
+  FontColor $INK
 }
 
 skinparam artifact<<data>> {
   BackgroundColor #FFFFFF
-  BorderColor #37474F
-  FontColor #263238
+  BorderColor $DATA
+  FontColor $INK
 }
 
 skinparam note {
-  BackgroundColor #FFF3E0
-  BorderColor #EF6C00
-  FontColor #4E342E
+  BackgroundColor $NOTE_BG
+  BorderColor $NOTE_BR
+  FontColor $INK
 }
 
 title <size:18><b>LArSoft on art: architecture + typical event data flow</b></size>\n<size:12>Simulation & real data are both handled as art jobs configured by FHiCL</size>
 
 legend right
   <b>Legend</b>
-  <b>Color</b>  <b>Meaning</b>
-  <back:E3F2FD>   </back>  art runtime (modules/services/tools, I/O, provenance)
-  <back:E8F5E9>   </back>  LArSoft shared toolkit (simulation, reconstruction, utilities)
-  <back:F3E5F5>   </back>  Experiment layer (geometry, calibrations, custom modules/config)
-  <back:ECEFF1>   </back>  External deps & inputs (ROOT, GEANT4, GENIE, flux files, DAQ)
-  <back:FFFDE7>   </back>  User configuration (FHiCL job options)
-  <back:FFFFFF>   </back>  Data-product store / persisted protocol
+  |<b>Mark</b>|<b>Meaning</b>|
+  |<color:#1D4ED8><b>■</b></color>|art runtime (modules/services/tools, I/O, provenance)|
+  |<color:#15803D><b>■</b></color>|LArSoft shared toolkit (simulation, reconstruction, utilities)|
+  |<color:#6D28D9><b>■</b></color>|Experiment layer (geometry, calibrations, custom modules/config)|
+  |<color:#4B5563><b>■</b></color>|External deps & inputs (ROOT, GEANT4, GENIE, flux files, DAQ)|
+  |<color:#B45309><b>■</b></color>|User configuration (FHiCL job options)|
+  |<color:#111827><b>■</b></color>|Data-product store / persisted protocol|
 endlegend
 
 ' =============================================================================
