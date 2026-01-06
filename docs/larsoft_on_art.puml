@@ -20,7 +20,7 @@ skinparam packageStyle rectangle
 skinparam componentStyle rectangle
 
 ' --- Color palette via stereotypes -------------------------------------------
-skinparam actor<<cfg>> {
+skinparam component<<cfg>> {
   BackgroundColor #FFF8E1
   BorderColor #FFB300
   FontColor #5D4037
@@ -119,7 +119,7 @@ endlegend
 ' =============================================================================
 ' User + configuration
 ' =============================================================================
-actor "Physicist / developer" as USER <<cfg>>
+component "Physicist / developer" as USER <<cfg>>
 artifact "Job configuration\nFHiCL (.fcl)\n• services\n• module labels\n• paths/end_paths\n• input/output" as FCL <<cfg>>
 
 ' =============================================================================
@@ -260,8 +260,10 @@ ANA ..> LARSVC
 EXPMODS ..> PLUGINS : compiled as plugins
 EXPMODS ..> LARSVC : may add services/tools
 
-note bottom of EVENT
-  In art/LArSoft, <b>data products</b> are the protocol between modules and are\npersisted in the <b>art ROOT output</b> along with provenance.\nExamples: simb::*, sim::*, raw::*, recob::*, anab::* + art::Assns.
+note right of EVENT
+  In art/LArSoft, <b>data products</b> are the protocol between modules
+  and are persisted in the <b>art ROOT output</b> along with provenance.
+  Examples: simb::*, sim::*, raw::*, recob::*, anab::* + art::Assns.
 end note
 
 @enduml
