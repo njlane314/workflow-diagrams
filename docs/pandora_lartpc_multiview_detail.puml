@@ -39,19 +39,19 @@ skinparam componentStyle rectangle
 
 ' --- Color palette via stereotypes -------------------------------------------
 skinparam package<<view>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #E5E7EB
   BorderColor $EXT
   FontColor $INK
 }
 
 skinparam component<<pandora>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #E0F2E9
   BorderColor $LAR
   FontColor $INK
 }
 
 skinparam artifact<<data>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #F3F4F6
   BorderColor $DATA
   FontColor $INK
 }

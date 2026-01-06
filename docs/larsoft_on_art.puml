@@ -41,78 +41,78 @@ skinparam legendFontColor $INK
 
 ' --- Color palette via stereotypes -------------------------------------------
 skinparam actor<<cfg>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #FEF3C7
   BorderColor $CFG
   FontColor $INK
 }
 skinparam artifact<<cfg>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #FEF3C7
   BorderColor $CFG
   FontColor $INK
 }
 
 skinparam package<<art>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #E3EAFD
   BorderColor $ART
   FontColor $INK
 }
 skinparam component<<art>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #E3EAFD
   BorderColor $ART
   FontColor $INK
 }
 
 skinparam package<<larsoft>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #E0F2E9
   BorderColor $LAR
   FontColor $INK
 }
 skinparam component<<larsoft>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #E0F2E9
   BorderColor $LAR
   FontColor $INK
 }
 
 skinparam package<<exp>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #EDE9FE
   BorderColor $EXP
   FontColor $INK
 }
 skinparam component<<exp>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #EDE9FE
   BorderColor $EXP
   FontColor $INK
 }
 skinparam artifact<<exp>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #EDE9FE
   BorderColor $EXP
   FontColor $INK
 }
 skinparam database<<exp>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #EDE9FE
   BorderColor $EXP
   FontColor $INK
 }
 
 skinparam package<<ext>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #E5E7EB
   BorderColor $EXT
   FontColor $INK
 }
 skinparam component<<ext>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #E5E7EB
   BorderColor $EXT
   FontColor $INK
 }
 
 skinparam database<<data>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #F3F4F6
   BorderColor $DATA
   FontColor $INK
 }
 
 skinparam artifact<<data>> {
-  BackgroundColor #FFFFFF
+  BackgroundColor #F3F4F6
   BorderColor $DATA
   FontColor $INK
 }
