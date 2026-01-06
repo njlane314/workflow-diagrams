@@ -6,7 +6,6 @@
 
 !$BG        = "#0B1020"
 !$FG        = "#EAF0FF"
-!$PKG       = "#0E152F"
 
 !$PAND_BG   = "#2A1F4A"
 !$PAND_BR   = "#B388FF"
@@ -44,25 +43,28 @@ title <size:18><b>Inside Pandora (per slice): multi-view 2D → 3D pattern recog
 
 artifact "Slice CaloHits\n(all planes: U, V, Y)" as SLICEH <<data>>
 
-package "U view (induction)" as U #$PKG {
+package "U view (induction)" as U #0E152F {
   artifact "U CaloHits" as UH <<data>>
   component "2D clustering U\n(seed/grow/split/merge)" as UC <<pandora>>
   artifact "2D clusters U" as U2 <<data>>
-  UH --> UC --> U2
+  UH --> UC
+  UC --> U2
 }
 
-package "V view (induction)" as V #$PKG {
+package "V view (induction)" as V #0E152F {
   artifact "V CaloHits" as VH <<data>>
   component "2D clustering V\n(seed/grow/split/merge)" as VC <<pandora>>
   artifact "2D clusters V" as V2 <<data>>
-  VH --> VC --> V2
+  VH --> VC
+  VC --> V2
 }
 
-package "Y view (collection)" as Y #$PKG {
+package "Y view (collection)" as Y #0E152F {
   artifact "Y CaloHits" as YH <<data>>
   component "2D clustering Y\n(seed/grow/split/merge)" as YC <<pandora>>
   artifact "2D clusters Y" as Y2 <<data>>
-  YH --> YC --> Y2
+  YH --> YC
+  YC --> Y2
 }
 
 SLICEH --> UH
@@ -83,7 +85,11 @@ component "Vertex hypothesis\n(connect prongs to common origin)" as VTX <<pandor
 component "PFO hierarchy assembly\n(parent–daughter, interaction tree)" as PFO <<pandora>>
 artifact "Slice-level PFOs\n+ associations & scores" as OUT <<data>>
 
-C3D --> REF --> TS --> VTX --> PFO --> OUT
+C3D --> REF
+REF --> TS
+TS --> VTX
+VTX --> PFO
+PFO --> OUT
 
 note right of XVIEW
 **Principle:** each view gives a 2D projection.
