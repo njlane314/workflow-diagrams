@@ -44,27 +44,25 @@ title <size:18><b>Inside Pandora (per slice): multi-view 2D → 3D pattern recog
 
 artifact "Slice CaloHits\n(all planes: U, V, Y)" as SLICEH <<data>>
 
-together {
-  package "U view (induction)" as U #$PKG {
-    artifact "U CaloHits" as UH <<data>>
-    component "2D clustering U\n(seed/grow/split/merge)" as UC <<pandora>>
-    artifact "2D clusters U" as U2 <<data>>
-    UH --> UC --> U2
-  }
+package "U view (induction)" as U #$PKG {
+  artifact "U CaloHits" as UH <<data>>
+  component "2D clustering U\n(seed/grow/split/merge)" as UC <<pandora>>
+  artifact "2D clusters U" as U2 <<data>>
+  UH --> UC --> U2
+}
 
-  package "V view (induction)" as V #$PKG {
-    artifact "V CaloHits" as VH <<data>>
-    component "2D clustering V\n(seed/grow/split/merge)" as VC <<pandora>>
-    artifact "2D clusters V" as V2 <<data>>
-    VH --> VC --> V2
-  }
+package "V view (induction)" as V #$PKG {
+  artifact "V CaloHits" as VH <<data>>
+  component "2D clustering V\n(seed/grow/split/merge)" as VC <<pandora>>
+  artifact "2D clusters V" as V2 <<data>>
+  VH --> VC --> V2
+}
 
-  package "Y view (collection)" as Y #$PKG {
-    artifact "Y CaloHits" as YH <<data>>
-    component "2D clustering Y\n(seed/grow/split/merge)" as YC <<pandora>>
-    artifact "2D clusters Y" as Y2 <<data>>
-    YH --> YC --> Y2
-  }
+package "Y view (collection)" as Y #$PKG {
+  artifact "Y CaloHits" as YH <<data>>
+  component "2D clustering Y\n(seed/grow/split/merge)" as YC <<pandora>>
+  artifact "2D clusters Y" as Y2 <<data>>
+  YH --> YC --> Y2
 }
 
 SLICEH --> UH
