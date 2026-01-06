@@ -1,37 +1,51 @@
 @startuml Pandora_LArTPC_MultiViewDetail
 ' ============================================================
 ' Pandora reconstruction in LArTPCs — multi-view 2D→3D detail
-' (per-slice conceptual view)
+' (per-slice conceptual view; engineering-style layout)
 ' ============================================================
 
-!$BG        = "#0B1020"
-!$FG        = "#EAF0FF"
+ ' ---- Engineering palette (light + print-friendly) ----
+!$BG        = "#FFFFFF"
+!$FG        = "#111111"
+!$LINE      = "#2B2B2B"
 
-!$PAND_BG   = "#2A1F4A"
-!$PAND_BR   = "#B388FF"
-!$DATA_BG   = "#1E1E1E"
-!$DATA_BR   = "#FFCA3A"
-!$NOTE_BG   = "#141A33"
-!$NOTE_BR   = "#3E4C80"
+!$PKG_BG    = "#F6F6F6"
+!$PKG_BR    = "#B8B8B8"
+
+!$PAND_BG   = "#E9F2FF"  ' algorithms (Pandora)
+!$PAND_BR   = "#2E5AAC"
+!$DATA_BG   = "#FFF4D6"  ' data products
+!$DATA_BR   = "#B07D00"
+!$NOTE_BG   = "#F3F3F3"
+!$NOTE_BR   = "#9C9C9C"
 
 skinparam backgroundColor $BG
+skinparam defaultFontName "Helvetica"
+skinparam defaultFontSize 12
 skinparam defaultFontColor $FG
 skinparam shadowing false
-skinparam roundcorner 16
+skinparam roundcorner 4
 skinparam linetype ortho
-skinparam ArrowColor "#AAB8FF"
-skinparam ArrowThickness 2
+skinparam ArrowColor $LINE
+skinparam ArrowThickness 1
 skinparam componentStyle rectangle
+
+skinparam packageStyle rectangle
+skinparam PackageBackgroundColor $PKG_BG
+skinparam PackageBorderColor $PKG_BR
+skinparam PackageFontColor $FG
+
+hide stereotype
 
 skinparam component<<pandora>> {
   BackgroundColor $PAND_BG
   BorderColor $PAND_BR
   FontColor $FG
 }
-skinparam artifact<<data>> {
+skinparam rectangle<<data>> {
   BackgroundColor $DATA_BG
   BorderColor $DATA_BR
-  FontColor "#FFF4D6"
+  FontColor $FG
 }
 skinparam note {
   BackgroundColor $NOTE_BG
@@ -39,67 +53,81 @@ skinparam note {
   FontColor $FG
 }
 
-title <size:18><b>Inside Pandora (per slice): multi-view 2D → 3D pattern recognition</b></size>
+title Pandora (per slice): multi-view 2D → 3D pattern recognition
 
-artifact "Slice CaloHits\n(all planes: U, V, Y)" as SLICEH <<data>>
+rectangle "Slice CaloHits\n(all planes: U, V, Y)" as SLICEH <<data>>
 
-package "U view (induction)" as U #0E152F {
-  artifact "U CaloHits" as UH <<data>>
-  component "2D clustering U\n(seed/grow/split/merge)" as UC <<pandora>>
-  artifact "2D clusters U" as U2 <<data>>
-  UH --> UC
-  UC --> U2
+ ' keep the three plane blocks aligned horizontally
+together {
+  package "U view (induction)" as U {
+    rectangle "U CaloHits" as UH <<data>>
+    component "2D clustering (U)\n- seed/grow\n- split/merge" as UC <<pandora>>
+    rectangle "2D clusters (U)" as U2 <<data>>
+    UH -down-> UC
+    UC -down-> U2
+  }
+
+  package "V view (induction)" as V {
+    rectangle "V CaloHits" as VH <<data>>
+    component "2D clustering (V)\n- seed/grow\n- split/merge" as VC <<pandora>>
+    rectangle "2D clusters (V)" as V2 <<data>>
+    VH -down-> VC
+    VC -down-> V2
+  }
+
+  package "Y view (collection)" as Y {
+    rectangle "Y CaloHits" as YH <<data>>
+    component "2D clustering (Y)\n- seed/grow\n- split/merge" as YC <<pandora>>
+    rectangle "2D clusters (Y)" as Y2 <<data>>
+    YH -down-> YC
+    YC -down-> Y2
+  }
 }
 
-package "V view (induction)" as V #0E152F {
-  artifact "V CaloHits" as VH <<data>>
-  component "2D clustering V\n(seed/grow/split/merge)" as VC <<pandora>>
-  artifact "2D clusters V" as V2 <<data>>
-  VH --> VC
-  VC --> V2
-}
+SLICEH -down-> UH
+SLICEH -down-> VH
+SLICEH -down-> YH
 
-package "Y view (collection)" as Y #0E152F {
-  artifact "Y CaloHits" as YH <<data>>
-  component "2D clustering Y\n(seed/grow/split/merge)" as YC <<pandora>>
-  artifact "2D clusters Y" as Y2 <<data>>
-  YH --> YC
-  YC --> Y2
-}
+component "Cross-view association\n- match 2D clusters across planes\n- constraints: geometry + drift-time" as XVIEW <<pandora>>
+rectangle "3D clusters / prongs\n(spacepoints, skeletons)" as C3D <<data>>
 
-SLICEH --> UH
-SLICEH --> VH
-SLICEH --> YH
+U2 -down-> XVIEW
+V2 -down-> XVIEW
+Y2 -down-> XVIEW
+XVIEW -down-> C3D
 
-component "Cross-view association\n(match 2D clusters across planes)\nusing geometry + drift-time consistency" as XVIEW <<pandora>>
-artifact "3D clusters / prongs\n(spacepoints, skeletons)" as C3D <<data>>
+component "Topology refinement (iterative)\n- resolve ambiguities\n- missing-view recovery\n- fragment removal\n- prong split/merge" as REF <<pandora>>
+component "Track/shower building\n- track-like: linear, MIP-like\n- shower-like: branching, widening" as TS <<pandora>>
+component "Vertex hypothesis\n- connect prongs to common origin" as VTX <<pandora>>
+component "PFO hierarchy assembly\n- parent–daughter\n- interaction tree" as PFO <<pandora>>
+rectangle "Slice-level PFOs\n+ associations & scores" as OUT <<data>>
 
-U2 --> XVIEW
-V2 --> XVIEW
-Y2 --> XVIEW
-XVIEW --> C3D
-
-component "Topology refinement (iterative)\n• resolve ambiguities\n• missing-view recovery\n• fragment removal\n• prong splitting/merging" as REF <<pandora>>
-component "Track vs shower building\n• track-like: linear, MIP-like\n• shower-like: branching, increasing width" as TS <<pandora>>
-component "Vertex hypothesis\n(connect prongs to common origin)" as VTX <<pandora>>
-component "PFO hierarchy assembly\n(parent–daughter, interaction tree)" as PFO <<pandora>>
-artifact "Slice-level PFOs\n+ associations & scores" as OUT <<data>>
-
-C3D --> REF
-REF --> TS
-TS --> VTX
-VTX --> PFO
-PFO --> OUT
+C3D -down-> REF
+REF -down-> TS
+TS -down-> VTX
+VTX -down-> PFO
+PFO -down-> OUT
 
 note right of XVIEW
-**Principle:** each view gives a 2D projection.
-3D comes from combining:
-• shared drift coordinate (x from time)\n• wire geometry constraints\n• topological consistency
+Assumption:
+Each wire-plane gives a 2D projection.
+3D is obtained by combining:
+- drift coordinate (x from time)
+- wire geometry constraints
+- topological consistency
 end note
 
 note right of TS
-**Discriminants (typical):**
-• track: straightness, constant dQ/dx\n• shower: start dE/dx, spread, branching
+Typical discriminants:
+- track: straightness, ~constant dQ/dx
+- shower: start dE/dx, lateral spread, branching
 end note
+
+legend bottom
+|= Fill |= Meaning |
+|<#E9F2FF>| Pandora algorithm block |
+|<#FFF4D6>| Data product passed between stages |
+|<#F3F3F3>| Explanatory note |
+endlegend
 
 @enduml
