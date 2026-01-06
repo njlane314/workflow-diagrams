@@ -8,13 +8,13 @@
 '
 ' --- Technical engineering theme (minimal, clean) -----------------------------
 '
-!$INK     = "#111827"   ' near-black
-!$MUTED   = "#6B7280"   ' gray
-!$ART     = "#1D4ED8"   ' blue
-!$LAR     = "#15803D"   ' green
-!$EXP     = "#6D28D9"   ' violet
-!$EXT     = "#4B5563"   ' slate
-!$CFG     = "#B45309"   ' amber
+!$INK     = "#111827"
+!$MUTED   = "#6B7280"
+!$ART     = "#1D4ED8"
+!$LAR     = "#15803D"
+!$EXP     = "#6D28D9"
+!$EXT     = "#4B5563"
+!$CFG     = "#B45309"
 !$DATA    = "#111827"
 !$NOTE_BG = "#F9FAFB"
 !$NOTE_BR = "#9CA3AF"
