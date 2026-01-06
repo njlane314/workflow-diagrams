@@ -1,0 +1,261 @@
+@startuml
+' =============================================================================
+' LArSoft on art: architecture + typical event data flow
+' =============================================================================
+' If your renderer has layout issues, try commenting out the next line.
+!pragma layout smetana
+
+hide stereotype
+skinparam backgroundColor #FFFFFF
+skinparam linetype ortho
+skinparam shadowing true
+skinparam roundCorner 14
+skinparam dpi 160
+skinparam defaultTextAlignment center
+skinparam nodesep 40
+skinparam ranksep 35
+skinparam ArrowThickness 1.3
+skinparam ArrowColor #2C3E50
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+' --- Color palette via stereotypes -------------------------------------------
+skinparam actor<<cfg>> {
+  BackgroundColor #FFF8E1
+  BorderColor #FFB300
+  FontColor #5D4037
+}
+skinparam artifact<<cfg>> {
+  BackgroundColor #FFFDE7
+  BorderColor #F9A825
+  FontColor #5D4037
+}
+
+skinparam package<<art>> {
+  BackgroundColor #E3F2FD
+  BorderColor #1565C0
+  FontColor #0D47A1
+}
+skinparam component<<art>> {
+  BackgroundColor #E8F4FF
+  BorderColor #1565C0
+  FontColor #0D47A1
+}
+
+skinparam package<<larsoft>> {
+  BackgroundColor #E8F5E9
+  BorderColor #2E7D32
+  FontColor #1B5E20
+}
+skinparam component<<larsoft>> {
+  BackgroundColor #F1F8E9
+  BorderColor #2E7D32
+  FontColor #1B5E20
+}
+
+skinparam package<<exp>> {
+  BackgroundColor #F3E5F5
+  BorderColor #6A1B9A
+  FontColor #4A148C
+}
+skinparam component<<exp>> {
+  BackgroundColor #FCE4EC
+  BorderColor #6A1B9A
+  FontColor #4A148C
+}
+skinparam artifact<<exp>> {
+  BackgroundColor #F3E5F5
+  BorderColor #6A1B9A
+  FontColor #4A148C
+}
+skinparam database<<exp>> {
+  BackgroundColor #F3E5F5
+  BorderColor #6A1B9A
+  FontColor #4A148C
+}
+
+skinparam package<<ext>> {
+  BackgroundColor #ECEFF1
+  BorderColor #455A64
+  FontColor #263238
+}
+skinparam component<<ext>> {
+  BackgroundColor #F5F5F5
+  BorderColor #455A64
+  FontColor #263238
+}
+
+skinparam database<<data>> {
+  BackgroundColor #FFFFFF
+  BorderColor #37474F
+  FontColor #263238
+}
+
+skinparam note {
+  BackgroundColor #FFF3E0
+  BorderColor #EF6C00
+  FontColor #4E342E
+}
+
+title <size:18><b>LArSoft on art: architecture + typical event data flow</b></size>\n<size:12>Simulation & real data are both handled as art jobs configured by FHiCL</size>
+
+legend right
+  <b>Legend</b>
+  <b>Color</b>  <b>Meaning</b>
+  <back:E3F2FD>   </back>  art runtime (modules/services/tools, I/O, provenance)
+  <back:E8F5E9>   </back>  LArSoft shared toolkit (simulation, reconstruction, utilities)
+  <back:F3E5F5>   </back>  Experiment layer (geometry, calibrations, custom modules/config)
+  <back:ECEFF1>   </back>  External deps & inputs (ROOT, GEANT4, GENIE, flux files, DAQ)
+  <back:FFFDE7>   </back>  User configuration (FHiCL job options)
+  <back:FFFFFF>   </back>  Data-product store / persisted protocol
+endlegend
+
+' =============================================================================
+' User + configuration
+' =============================================================================
+actor "Physicist / developer" as USER <<cfg>>
+artifact "Job configuration\nFHiCL (.fcl)\n• services\n• module labels\n• paths/end_paths\n• input/output" as FCL <<cfg>>
+
+' =============================================================================
+' Experiment-specific layer
+' =============================================================================
+package "Experiment software\n(dunesw/dunetpc, sbndcode,\nicaruscode, uboonecode, ...)" <<exp>> {
+  artifact "Detector description\nGDML + channel map\n+ detector-specific tables" as GDML <<exp>>
+  database "Conditions / calibrations\n(DB + files)\n(run/subrun dependent)" as COND <<exp>>
+  component "Experiment configs\n(fcl fragments, standard\nworkflows, overrides)" as EXPFCL <<exp>>
+  component "Custom art modules\n(EDProducer/EDAnalyzer)\n& custom tools" as EXPMODS <<exp>>
+}
+
+' =============================================================================
+' art runtime
+' =============================================================================
+package "art event-processing framework\n(runtime)" <<art>> {
+  component "lar\n(main executable)" as LAR <<art>>
+  component "fhiclcpp\n(parse/compose ParameterSets)" as FHICL <<art>>
+  component "Plugin system\n(load Modules/Services/Tools)" as PLUGINS <<art>>
+  component "EventProcessor + Scheduler\n(multi-path execution)" as SCHED <<art>>
+  component "I/O\nRootInputSource\nRootOutputModule" as IO <<art>>
+  component "MessageFacility\nlogging/metrics" as MSG <<art>>
+  database "art::Event\n+ ProductRegistry\n+ provenance" as EVENT <<data>>
+}
+
+' =============================================================================
+' LArSoft shared toolkit
+' =============================================================================
+package "LArSoft shared toolkit" <<larsoft>> {
+  component "Service providers\n(Geometry, DetectorClocks,\nDetectorProperties, Calib,\nSpaceCharge, ...)" as LARSVC <<larsoft>>
+
+  package "Typical physics path\n(modules as plugins)" <<larsoft>> {
+    component "Event generation\n(eg. GENIE)\n→ simb::MCTruth" as GEN <<larsoft>>
+    component "Particle transport\n(Geant4 via LArG4)\n→ simb::MCParticle" as G4 <<larsoft>>
+
+    component "Detector simulation\nTPC + photon systems\n(field effects, drift,\nresponse, noise)\n→ sim::*" as DETSIM <<larsoft>>
+
+    component "Digitization\n→ raw::RawDigit\n→ raw::OpDetWaveform" as DIGI <<larsoft>>
+
+    component "Signal processing\n(deconvolution, ROI)\n→ recob::Wire" as SIGPROC <<larsoft>>
+    component "Hit finding\n→ recob::Hit\n+ Assns<Wire,Hit>\n+ Assns<RawDigit,Hit>" as HITS <<larsoft>>
+    component "2D clustering\n→ recob::Cluster\n+ Assns<Hit,Cluster>" as CLUS2D <<larsoft>>
+    component "3D reco\n→ recob::Track / Shower\n→ recob::Vertex / SpacePoint" as RECO3D <<larsoft>>
+    component "Global reconstruction\n→ recob::PFParticle\n→ recob::Event" as GLOBAL <<larsoft>>
+
+    component "Analysis modules\n(ntuples, histograms,\nPID, ML inference)\n→ anab::* (optional)" as ANA <<larsoft>>
+  }
+}
+
+' =============================================================================
+' External deps & inputs
+' =============================================================================
+package "External libraries / inputs" <<ext>> {
+  component "ROOT\n(art ROOT I/O)" as ROOT <<ext>>
+  component "GEANT4\n(transport)" as GEANT4 <<ext>>
+  component "GENIE / other generators" as GENIE <<ext>>
+
+  component "Beamline simulation\n(often external)\nGeant4 + PPFX\n→ flux files" as BEAMSIM <<ext>>
+  component "Flux files\n(beam/cosmic/etc.)" as FLUX <<ext>>
+
+  component "DAQ / raw data\n(art/ROOT files)\nraw::RawDigit, ..." as DAQ <<ext>>
+}
+
+' =============================================================================
+' Relationships: configuration & ownership
+' =============================================================================
+USER --> FCL : selects workflow\n+ sets parameters
+FCL ..> FHICL : read/compose at startup
+FCL ..> LAR : passed as ParameterSet
+
+EXPFCL ..> FCL : included as fragments
+GDML ..> LARSVC : geometry inputs
+COND ..> LARSVC : calibrations & conditions
+
+' =============================================================================
+' Relationships: art runtime wiring
+' =============================================================================
+LAR --> FHICL
+LAR --> PLUGINS
+LAR --> SCHED
+SCHED --> EVENT : run/subrun/event\nlifecycle
+PLUGINS --> LARSVC : loads services
+
+' modules loaded as plugins
+PLUGINS --> GEN
+PLUGINS --> G4
+PLUGINS --> DETSIM
+PLUGINS --> DIGI
+PLUGINS --> SIGPROC
+PLUGINS --> HITS
+PLUGINS --> CLUS2D
+PLUGINS --> RECO3D
+PLUGINS --> GLOBAL
+PLUGINS --> ANA
+
+IO --> EVENT : read / write\nart ROOT files
+MSG ..> SCHED : messages\n& diagnostics
+
+ROOT <.. IO
+GEANT4 <.. G4
+GENIE <.. GEN
+
+' =============================================================================
+' Relationships: typical simulation→reco data flow
+' =============================================================================
+BEAMSIM --> FLUX : beam flux
+FLUX --> GEN : flux description
+GEN --> G4 : simb::MCTruth
+G4 --> DETSIM : simb::MCParticle
+DETSIM --> DIGI : sim::SimChannel\n(sim::SimPhotons*)
+DIGI --> SIGPROC : raw::RawDigit
+SIGPROC --> HITS : recob::Wire
+HITS --> CLUS2D : recob::Hit
+CLUS2D --> RECO3D : recob::Cluster
+RECO3D --> GLOBAL : Track/Shower/Vertex
+GLOBAL --> ANA : PFParticle graph\n(+ associations)
+
+' =============================================================================
+' Real data entry point
+' =============================================================================
+DAQ --> IO : input files
+IO --> SIGPROC : raw::RawDigit\n(real detector data)
+
+' =============================================================================
+' Shared services used throughout
+' =============================================================================
+GEN ..> LARSVC : geometry\n+ detector properties
+G4 ..> LARSVC
+DETSIM ..> LARSVC
+DIGI ..> LARSVC
+SIGPROC ..> LARSVC
+HITS ..> LARSVC
+CLUS2D ..> LARSVC
+RECO3D ..> LARSVC
+GLOBAL ..> LARSVC
+ANA ..> LARSVC
+
+EXPMODS ..> PLUGINS : compiled as plugins
+EXPMODS ..> LARSVC : may add services/tools
+
+note bottom of EVENT
+  In art/LArSoft, <b>data products</b> are the protocol between modules and are\npersisted in the <b>art ROOT output</b> along with provenance.\nExamples: simb::*, sim::*, raw::*, recob::*, anab::* + art::Assns.
+end note
+
+@enduml
