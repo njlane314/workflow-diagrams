@@ -1,14 +1,9 @@
 @startuml Pandora_LArTPC_MultiViewDetail
 ' =============================================================================
 ' Pandora reconstruction in LArTPCs — multi-view 2D→3D detail
-' (per-slice conceptual view)
+' (per-slice conceptual view; with upstream slicing + downstream flash match)
 ' =============================================================================
-' If your renderer has layout issues, try commenting out the next line.
 !pragma layout smetana
-
-'
-' --- Technical engineering theme (match LArSoft_on_art_architecture.puml) -----
-'
 !$INK     = "#111827"
 !$MUTED   = "#6B7280"
 !$ART     = "#1D4ED8"
@@ -50,6 +45,18 @@ skinparam component<<pandora>> {
   FontColor $INK
 }
 
+skinparam component<<larsoft>> {
+  BackgroundColor #DBEAFE
+  BorderColor $ART
+  FontColor $INK
+}
+
+skinparam component<<optical>> {
+  BackgroundColor #EDE9FE
+  BorderColor $EXP
+  FontColor $INK
+}
+
 skinparam artifact<<data>> {
   BackgroundColor #F3F4F6
   BorderColor $DATA
@@ -62,9 +69,17 @@ skinparam note {
   FontColor $INK
 }
 
-title <size:18><b>Inside Pandora (per slice): multi-view 2D → 3D pattern recognition</b></size>
+title <size:18><b>Inside PandoraNu (per slice): multi-view 2D → 3D pattern recognition</b></size>
 
+' --- Upstream context (how a slice appears) -----------------------------------
+artifact "TPC hits\n(cosmic-removed)" as CRH <<data>>
+component "PandoraNu slicing\n(partition hits into candidate interactions)" as SLICE <<pandora>>
 artifact "Slice CaloHits\n(all planes: U, V, Y)" as SLICEH <<data>>
+
+CRH --> SLICE
+SLICE --> SLICEH
+
+' --- Per-view 2D processing ---------------------------------------------------
 
 package "U view (induction)" as U <<view>> {
   artifact "U CaloHits" as UH <<data>>
@@ -94,6 +109,7 @@ SLICEH --> UH
 SLICEH --> VH
 SLICEH --> YH
 
+' --- Cross-view → 3D ----------------------------------------------------------
 component "Cross-view association\n(match 2D clusters across planes)\nusing geometry + drift-time consistency" as XVIEW <<pandora>>
 artifact "3D clusters / prongs\n(spacepoints, skeletons)" as C3D <<data>>
 
@@ -102,6 +118,7 @@ V2 --> XVIEW
 Y2 --> XVIEW
 XVIEW --> C3D
 
+' --- Iterative refinement and PFO building -----------------------------------
 component "Topology refinement (iterative)\n• resolve ambiguities\n• missing-view recovery\n• fragment removal\n• prong splitting/merging" as REF <<pandora>>
 component "Track vs shower building\n• track-like: linear, MIP-like\n• shower-like: branching, increasing width" as TS <<pandora>>
 component "Vertex hypothesis\n(connect prongs to common origin)" as VTX <<pandora>>
@@ -114,6 +131,15 @@ TS --> VTX
 VTX --> PFO
 PFO --> OUT
 
+' --- Optical consistency / t0 assignment (downstream test) --------------------
+artifact "Candidate flashes\n(time, PE pattern)" as FLASH <<data>>
+component "Flash matching / t0 assignment\n(match slice ↔ in-beam flash)" as FM <<pandora>>
+artifact "Selected neutrino slice\n+ t0 + cosmic-rejection score" as SEL <<data>>
+
+OUT --> FM
+FLASH --> FM
+FM --> SEL
+
 note right of XVIEW
   <b>Principle:</b> each view gives a 2D projection.
   3D comes from combining:
@@ -124,8 +150,13 @@ end note
 
 note right of TS
   <b>Discriminants (typical):</b>
-  • track: straightness, constant dQ/dx
+  • track: straightness, ~constant dQ/dx
   • shower: start dE/dx, spread, branching
+end note
+
+note right of FM
+  <b>Purpose:</b> validate the charge-only slice hypothesis.
+  Provides an absolute <b>t0</b> and a powerful cosmic-rejection handle.
 end note
 
 @enduml
