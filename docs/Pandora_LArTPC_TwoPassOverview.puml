@@ -1,0 +1,137 @@
+@startuml Pandora_LArTPC_TwoPassOverview
+' =============================================================================
+' Pandora reconstruction in LArTPCs — two-pass overview (cosmic → neutrino)
+' =============================================================================
+!pragma layout smetana
+
+!$INK     = "#111827"
+!$MUTED   = "#6B7280"
+!$ART     = "#1D4ED8"
+!$LAR     = "#15803D"
+!$EXP     = "#6D28D9"
+!$EXT     = "#4B5563"
+!$CFG     = "#B45309"
+!$DATA    = "#111827"
+!$NOTE_BG = "#F9FAFB"
+!$NOTE_BR = "#9CA3AF"
+
+hide stereotype
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontColor $INK
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam dpi 160
+skinparam defaultTextAlignment center
+skinparam nodesep 40
+skinparam ranksep 35
+skinparam LineThickness 1
+skinparam ArrowThickness 1.1
+skinparam ArrowColor $INK
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+skinparam package<<stage>> {
+  BackgroundColor #E5E7EB
+  BorderColor $EXT
+  FontColor $INK
+}
+skinparam component<<larsoft>> {
+  BackgroundColor #DBEAFE
+  BorderColor $ART
+  FontColor $INK
+}
+skinparam component<<pandora>> {
+  BackgroundColor #E0F2E9
+  BorderColor $LAR
+  FontColor $INK
+}
+skinparam component<<optical>> {
+  BackgroundColor #EDE9FE
+  BorderColor $EXP
+  FontColor $INK
+}
+skinparam artifact<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
+skinparam note {
+  BackgroundColor $NOTE_BG
+  BorderColor $NOTE_BR
+  FontColor $INK
+}
+
+title <size:18><b>Pandora in a surface LArTPC: two-pass reconstruction (cosmic → neutrino)</b></size>
+
+package "TPC front-end" as FE <<stage>> {
+  artifact "Raw TPC waveforms\n(U, V, Y)" as RAW <<data>>
+  component "Signal processing\n(deconvolution, noise filtering)" as SP <<larsoft>>
+  component "Hit finding\n(ROIs → hits)" as HF <<larsoft>>
+  artifact "TPC hits\n(per plane)" as HITS <<data>>
+  RAW --> SP
+  SP --> HF
+  HF --> HITS
+}
+
+package "Optical front-end" as OP <<stage>> {
+  artifact "PMT waveforms" as PMT <<data>>
+  component "Flash finding\n(beam-window candidates)" as FF <<optical>>
+  artifact "Candidate flashes\n(time, PE pattern)" as FLASH <<data>>
+  PMT --> FF
+  FF --> FLASH
+}
+
+package "Pass 1: PandoraCosmic" as PC <<stage>> {
+  component "PandoraCosmic\n(track-centric PR)" as PCOS <<pandora>>
+  artifact "Cosmic PFParticles\n+ cosmic-tagged hits" as COSPFO <<data>>
+  component "Cosmic-hit removal\n(produce 'cosmic-removed' hits)" as CHRM <<pandora>>
+  artifact "Cosmic-removed hits" as CRH <<data>>
+
+  HITS --> PCOS
+  PCOS --> COSPFO
+  COSPFO --> CHRM
+  HITS --> CHRM
+  CHRM --> CRH
+}
+
+package "Pass 2: PandoraNu" as PN <<stage>> {
+  component "Slicing\n(partition hits into interaction-like sub-events)" as SLICE <<pandora>>
+  artifact "Candidate slices\n(per-slice hit collections)" as SLICES <<data>>
+  component "Per-slice pattern recognition\n(2D→3D, vertexing, PFO assembly)" as PR <<pandora>>
+  artifact "Slice-level PFParticles\n+ associations" as PFO <<data>>
+
+  CRH --> SLICE
+  SLICE --> SLICES
+  SLICES --> PR
+  PR --> PFO
+}
+
+package "Charge–light consistency" as CL <<stage>> {
+  component "Flash matching / t0 assignment\n(match slice to in-beam flash)" as FM <<pandora>>
+  artifact "Selected neutrino slice\n+ t0 + cosmic-rejection score" as SEL <<data>>
+
+  PFO --> FM
+  FLASH --> FM
+  FM --> SEL
+}
+
+note right of PCOS
+  <b>Goal:</b> suppress dominant confusion from
+  long through-going cosmics before any
+  neutrino hypothesis is introduced.
+end note
+
+note right of SLICE
+  <b>Slicing:</b> localises PR to reduce combinatorics,
+  yielding a small set of neutrino-candidate slices.
+end note
+
+note right of FM
+  <b>Flash matching:</b> tests the charge-based hypothesis
+  against optical information and provides an absolute
+  <b>t0</b> handle for x(drift) and cosmic rejection.
+end note
+
+@enduml
