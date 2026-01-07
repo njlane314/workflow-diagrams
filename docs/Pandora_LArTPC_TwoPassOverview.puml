@@ -1,8 +1,10 @@
-@startuml Pandora_LArTPC_TwoPassOverview
+@startuml Pandora_LArTPC_MultiViewDetail
 ' =============================================================================
-' Pandora reconstruction in LArTPCs — two-pass overview (cosmic → neutrino)
+' Pandora reconstruction in LArTPCs — multi-view 2D→3D detail
+' (per-slice conceptual view; with upstream slicing + downstream flash match)
 ' =============================================================================
 !pragma layout smetana
+left to right direction
 
 !$INK     = "#111827"
 !$MUTED   = "#6B7280"
@@ -25,26 +27,44 @@ skinparam roundCorner 0
 skinparam dpi 160
 skinparam defaultTextAlignment center
 skinparam nodesep 40
-skinparam ranksep 35
+skinparam ranksep 40
 skinparam LineThickness 1
 skinparam ArrowThickness 1.1
 skinparam ArrowColor $INK
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
 
-skinparam package<<stage>> {
+' --- Color palette via stereotypes -------------------------------------------
+' (keep a neutral default "view", but give U/V/Y distinct tints)
+skinparam package<<view>> {
   BackgroundColor #E5E7EB
   BorderColor $EXT
+  FontColor $INK
+}
+skinparam package<<viewU>> {
+  BackgroundColor #EFF6FF
+  BorderColor $ART
+  FontColor $INK
+}
+skinparam package<<viewV>> {
+  BackgroundColor #F5F3FF
+  BorderColor $EXP
+  FontColor $INK
+}
+skinparam package<<viewY>> {
+  BackgroundColor #ECFDF5
+  BorderColor $LAR
+  FontColor $INK
+}
+
+skinparam component<<pandora>> {
+  BackgroundColor #E0F2E9
+  BorderColor $LAR
   FontColor $INK
 }
 skinparam component<<larsoft>> {
   BackgroundColor #DBEAFE
   BorderColor $ART
-  FontColor $INK
-}
-skinparam component<<pandora>> {
-  BackgroundColor #E0F2E9
-  BorderColor $LAR
   FontColor $INK
 }
 skinparam component<<optical>> {
@@ -63,75 +83,106 @@ skinparam note {
   FontColor $INK
 }
 
-title <size:18><b>Pandora in a surface LArTPC: two-pass reconstruction (cosmic → neutrino)</b></size>
+title <size:18><b>Inside PandoraNu (per slice): multi-view 2D → 3D pattern recognition</b></size>
 
-package "TPC front-end" as FE <<stage>> {
-  artifact "Raw TPC waveforms\n(U, V, Y)" as RAW <<data>>
-  component "Signal processing\n(deconvolution, noise filtering)" as SP <<larsoft>>
-  component "Hit finding\n(ROIs → hits)" as HF <<larsoft>>
-  artifact "TPC hits\n(per plane)" as HITS <<data>>
-  RAW --> SP
-  SP --> HF
-  HF --> HITS
+' --- Upstream context (how a slice appears) -----------------------------------
+artifact "TPC hits\n(cosmic-removed)" as CRH <<data>>
+component "PandoraNu slicing\n(partition hits into candidate interactions)" as SLICE <<pandora>>
+artifact "Slice CaloHits\n(all planes: U, V, Y)" as SLICEH <<data>>
+
+CRH   -right-> SLICE
+SLICE -right-> SLICEH
+
+' --- Per-view 2D processing ---------------------------------------------------
+package "U view (induction)" as U <<viewU>> {
+  artifact  "U CaloHits" as UH <<data>>
+  component "2D clustering U\n(seed/grow/split/merge)" as UC <<pandora>>
+  artifact  "2D clusters U" as U2 <<data>>
+  UH -down-> UC
+  UC -down-> U2
 }
 
-package "Optical front-end" as OP <<stage>> {
-  artifact "PMT waveforms" as PMT <<data>>
-  component "Flash finding\n(beam-window candidates)" as FF <<optical>>
-  artifact "Candidate flashes\n(time, PE pattern)" as FLASH <<data>>
-  PMT --> FF
-  FF --> FLASH
+package "V view (induction)" as V <<viewV>> {
+  artifact  "V CaloHits" as VH <<data>>
+  component "2D clustering V\n(seed/grow/split/merge)" as VC <<pandora>>
+  artifact  "2D clusters V" as V2 <<data>>
+  VH -down-> VC
+  VC -down-> V2
 }
 
-package "Pass 1: PandoraCosmic" as PC <<stage>> {
-  component "PandoraCosmic\n(track-centric PR)" as PCOS <<pandora>>
-  artifact "Cosmic PFParticles\n+ cosmic-tagged hits" as COSPFO <<data>>
-  component "Cosmic-hit removal\n(produce 'cosmic-removed' hits)" as CHRM <<pandora>>
-  artifact "Cosmic-removed hits" as CRH <<data>>
-
-  HITS --> PCOS
-  PCOS --> COSPFO
-  COSPFO --> CHRM
-  HITS --> CHRM
-  CHRM --> CRH
+package "Y view (collection)" as Y <<viewY>> {
+  artifact  "Y CaloHits" as YH <<data>>
+  component "2D clustering Y\n(seed/grow/split/merge)" as YC <<pandora>>
+  artifact  "2D clusters Y" as Y2 <<data>>
+  YH -down-> YC
+  YC -down-> Y2
 }
 
-package "Pass 2: PandoraNu" as PN <<stage>> {
-  component "Slicing\n(partition hits into interaction-like sub-events)" as SLICE <<pandora>>
-  artifact "Candidate slices\n(per-slice hit collections)" as SLICES <<data>>
-  component "Per-slice pattern recognition\n(2D→3D, vertexing, PFO assembly)" as PR <<pandora>>
-  artifact "Slice-level PFParticles\n+ associations" as PFO <<data>>
+' Fan-out from slice → per-plane hits (keeps flow left→right)
+SLICEH -right-> UH
+SLICEH -right-> VH
+SLICEH -right-> YH
 
-  CRH --> SLICE
-  SLICE --> SLICES
-  SLICES --> PR
-  PR --> PFO
-}
+' Keep the three view boxes neatly stacked and aligned
+U  -down[hidden]-> V
+V  -down[hidden]-> Y
+UH -down[hidden]-> VH
+VH -down[hidden]-> YH
+U2 -down[hidden]-> V2
+V2 -down[hidden]-> Y2
 
-package "Charge–light consistency" as CL <<stage>> {
-  component "Flash matching / t0 assignment\n(match slice to in-beam flash)" as FM <<pandora>>
-  artifact "Selected neutrino slice\n+ t0 + cosmic-rejection score" as SEL <<data>>
+' --- Cross-view → 3D ----------------------------------------------------------
+component "Cross-view association\n(match 2D clusters across planes)\nusing geometry + drift-time consistency" as XVIEW <<pandora>>
+artifact "3D clusters / prongs\n(spacepoints, skeletons)" as C3D <<data>>
 
-  PFO --> FM
-  FLASH --> FM
-  FM --> SEL
-}
+U2 -right-> XVIEW
+V2 -right-> XVIEW
+Y2 -right-> XVIEW
 
-note right of PCOS
-  <b>Goal:</b> suppress dominant confusion from
-  long through-going cosmics before any
-  neutrino hypothesis is introduced.
+' Anchor the 3D step to the middle view to avoid a “floating” look
+V2 -right[hidden]-> XVIEW
+
+XVIEW -right-> C3D
+
+' --- Iterative refinement and PFO building -----------------------------------
+component "Topology refinement (iterative)\n• resolve ambiguities\n• missing-view recovery\n• fragment removal\n• prong splitting/merging" as REF <<pandora>>
+component "Track vs shower building\n• track-like: linear, MIP-like\n• shower-like: branching, increasing width" as TS <<pandora>>
+component "Vertex hypothesis\n(connect prongs to common origin)" as VTX <<pandora>>
+component "PFO hierarchy assembly\n(parent–daughter, interaction tree)" as PFO <<pandora>>
+artifact  "Slice-level PFOs\n+ associations & scores" as OUT <<data>>
+
+C3D -right-> REF
+REF -right-> TS
+TS  -right-> VTX
+VTX -right-> PFO
+PFO -right-> OUT
+
+' --- Optical consistency / t0 assignment (downstream test) --------------------
+artifact  "Candidate flashes\n(time, PE pattern)" as FLASH <<data>>
+component "Flash matching / t0 assignment\n(match slice ↔ in-beam flash)" as FM <<pandora>>
+artifact  "Selected neutrino slice\n+ t0 + cosmic-rejection score" as SEL <<data>>
+
+OUT   -right-> FM
+FLASH -down->  FM
+FM    -right-> SEL
+
+note right of XVIEW
+  <b>Principle:</b> each view gives a 2D projection.
+  3D comes from combining:
+  • shared drift coordinate (x from time)
+  • wire geometry constraints
+  • topological consistency
 end note
 
-note right of SLICE
-  <b>Slicing:</b> localises PR to reduce combinatorics,
-  yielding a small set of neutrino-candidate slices.
+note right of TS
+  <b>Discriminants (typical):</b>
+  • track: straightness, ~constant dQ/dx
+  • shower: start dE/dx, spread, branching
 end note
 
 note right of FM
-  <b>Flash matching:</b> tests the charge-based hypothesis
-  against optical information and provides an absolute
-  <b>t0</b> handle for x(drift) and cosmic rejection.
+  <b>Purpose:</b> validate the charge-only slice hypothesis.
+  Provides an absolute <b>t0</b> and a powerful cosmic-rejection handle.
 end note
 
 @enduml
