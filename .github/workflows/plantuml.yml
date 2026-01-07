@@ -30,7 +30,7 @@ jobs:
 
       - run: |
           for diagram in docs/*.puml; do
-            plantuml -overwrite "${diagram}"
+            plantuml -tpdf -overwrite "${diagram}"
           done
 
       - name: Commit diagrams
