@@ -2,14 +2,10 @@
 ' =============================================================================
 ' LArSoft on art: architecture + typical event data flow  (A4 portrait tuned)
 ' =============================================================================
-' If your renderer has layout issues, try commenting out the next line.
 !pragma layout smetana
 
 ' --- A4 portrait fit helpers -------------------------------------------------
 top to bottom direction
-' "scale max W*H" scales the whole diagram to fit within the given dimensions. :contentReference[oaicite:0]{index=0}
-' A4 portrait printable area (with typical margins) ~180×267 mm.
-' At 160 dpi that is ~1130×1680 px, so keep it slightly under:
 scale max 1100*1650
 
 skinparam defaultFontSize 10
@@ -44,12 +40,9 @@ skinparam ArrowThickness 1.1
 skinparam ArrowColor $INK
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
-skinparam legendBackgroundColor #FFFFFF
-skinparam legendBorderColor $NOTE_BR
-skinparam legendFontColor $INK
 
 ' --- Color palette via stereotypes -------------------------------------------
-skinparam actor<<cfg>> {
+skinparam component<<cfg>> {
   BackgroundColor #FEF3C7
   BorderColor $CFG
   FontColor $INK
@@ -131,25 +124,10 @@ skinparam note {
   FontColor $INK
 }
 
-title <size:16><b>LArSoft on art: architecture + typical event data flow</b></size>\n<size:11>Simulation & real data are both handled as art jobs configured by FHiCL</size>
-
-' Put legend at the bottom (portrait-friendly), and keep it narrow with <br> wraps. :contentReference[oaicite:1]{index=1}
-legend bottom
-  <size:10><b>Legend</b>
-  |<b>Mark</b>|<b>Meaning</b>|
-  |<color:#1D4ED8><b>■</b></color>|art runtime<br>(modules/services/tools, I/O, provenance)|
-  |<color:#15803D><b>■</b></color>|LArSoft shared toolkit<br>(simulation, reconstruction, utilities)|
-  |<color:#6D28D9><b>■</b></color>|Experiment layer<br>(geometry, calibrations, custom config/modules)|
-  |<color:#4B5563><b>■</b></color>|External deps & inputs<br>(ROOT, GEANT4, GENIE, flux, DAQ)|
-  |<color:#B45309><b>■</b></color>|User configuration<br>(FHiCL job options)|
-  |<color:#111827><b>■</b></color>|Data-product store / persisted protocol|
-  </size>
-endlegend
-
 ' =============================================================================
-' User + configuration
+' Job submission + configuration
 ' =============================================================================
-actor "Physicist / developer" as USER <<cfg>>
+component "Job launcher / workflow\n(batch/grid/interactive)\nexec: lar -c job.fcl" as USER <<cfg>>
 artifact "Job configuration\nFHiCL (.fcl)\n• services\n• module labels\n• paths/end_paths\n• input/output" as FCL <<cfg>>
 
 ' =============================================================================
@@ -215,7 +193,6 @@ package "LArSoft shared toolkit" <<larsoft>> {
 
 ' =============================================================================
 ' Layout nudges (portrait stacking)
-' Hidden edges influence layout but do not render. :contentReference[oaicite:2]{index=2}
 ' =============================================================================
 FCL   -[hidden]d-> GDML
 GDML  -[hidden]d-> DAQ
@@ -242,7 +219,7 @@ LAR --> SCHED
 SCHED --> EVENT : run/subrun/event\nlifecycle
 
 PLUGINS --> LARSVC : loads services
-' Collapse the "loads as plugins" fan-out to keep the diagram narrow.
+' Keep this as a single representative link to avoid width growth
 PLUGINS --> GEN : loads module plugins\n(GEN→ANA)
 
 IO --> EVENT : read / write\nart ROOT files
@@ -254,7 +231,6 @@ GENIE <.. GEN
 
 ' =============================================================================
 ' Relationships: typical simulation→reco data flow (forced vertical)
-' Directional arrows help prevent horizontal sprawl. :contentReference[oaicite:3]{index=3}
 ' =============================================================================
 BEAMSIM -down-> FLUX : beam flux
 FLUX    -down-> GEN  : flux description
