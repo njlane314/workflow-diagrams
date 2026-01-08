@@ -1,0 +1,250 @@
+@startuml
+' =============================================================================
+' Collie: architecture + typical workflow  (A4 portrait tuned)
+' =============================================================================
+!pragma layout smetana
+
+' --- A4 portrait fit helpers -------------------------------------------------
+top to bottom direction
+scale max 1100*1650
+
+skinparam defaultFontSize 10
+skinparam nodesep 22
+skinparam ranksep 24
+
+'
+' --- Technical engineering theme (minimal, clean) -----------------------------
+'
+!$INK     = "#111827"
+!$MUTED   = "#6B7280"
+!$COLLIE  = "#0F766E"
+!$EXT     = "#4B5563"
+!$CFG     = "#B45309"
+!$DATA    = "#111827"
+!$NOTE_BG = "#F9FAFB"
+!$NOTE_BR = "#9CA3AF"
+
+hide stereotype
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontColor $INK
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam dpi 160
+skinparam defaultTextAlignment center
+skinparam LineThickness 1
+skinparam ArrowThickness 1.1
+skinparam ArrowColor $INK
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+' --- Color palette via stereotypes -------------------------------------------
+skinparam component<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+skinparam artifact<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+
+skinparam package<<collie>> {
+  BackgroundColor #E6FFFB
+  BorderColor $COLLIE
+  FontColor $INK
+}
+skinparam component<<collie>> {
+  BackgroundColor #E6FFFB
+  BorderColor $COLLIE
+  FontColor $INK
+}
+skinparam artifact<<collie>> {
+  BackgroundColor #E6FFFB
+  BorderColor $COLLIE
+  FontColor $INK
+}
+
+skinparam package<<ext>> {
+  BackgroundColor #E5E7EB
+  BorderColor $EXT
+  FontColor $INK
+}
+skinparam component<<ext>> {
+  BackgroundColor #E5E7EB
+  BorderColor $EXT
+  FontColor $INK
+}
+skinparam artifact<<ext>> {
+  BackgroundColor #E5E7EB
+  BorderColor $EXT
+  FontColor $INK
+}
+
+skinparam database<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
+skinparam artifact<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
+
+skinparam note {
+  BackgroundColor $NOTE_BG
+  BorderColor $NOTE_BR
+  FontColor $INK
+}
+
+' =============================================================================
+' Job submission + configuration (generic)
+' =============================================================================
+component "User / analysis workflow\n(batch/grid/interactive)\nexec: collieIOmaker.exe\nexec: collieLimitCalc.exe" as USER <<cfg>>
+artifact "Steering inputs\n(command line + config)\n• channels / mass grid\n• systematics\n• toys / scans\n• output naming" as CFG <<cfg>>
+
+' =============================================================================
+' External inputs & runtime deps
+' =============================================================================
+package "External inputs / deps" <<ext>> {
+  artifact "ROOT histograms\n(data, signal, backgrounds)\nTH1/TH2/TH3" as HISTS <<ext>>
+  component "ROOT\n(histograms + I/O)" as ROOT <<ext>>
+}
+
+' =============================================================================
+' Stage 1: Collie I/O creation
+' =============================================================================
+package "Stage 1: Collie I/O creation" <<collie>> {
+  artifact "libCollieIO.so" as LIBIO <<collie>>
+
+  component "collieIOmaker.exe\n(or user code)\n• read ROOT hists\n• define channels\n• write CollieIO file" as IOMAKER <<collie>>
+
+  component "CollieIOFile API\n(io/include/CollieIOFile.hh)\ncreateChannel()\ncreateMassPoint()\ncreate*Systematic()\nstoreFile()" as IOAPI <<collie>>
+
+  component "Mass points / grids\n(1D / 2D / 3D)" as GRID <<collie>>
+  component "Systematics\nflat + shape\n(1D/2D, optional event lists)" as SYST <<collie>>
+
+  component "collieIOcondenser.exe\n(merge IO files)" as IOCOND <<collie>>
+
+  database "CollieIO file\n(ROOT)\nchannels + mass points\n+ systematics" as IOFILE <<data>>
+}
+
+' =============================================================================
+' Stage 2: limits & cross-section calculations
+' =============================================================================
+package "Stage 2: Limit & cross-section calculation" <<collie>> {
+  artifact "libCollieLimit.so" as LIBLIM <<collie>>
+
+  component "CLs engines\n• CLfast (no syst)\n• CLsyst (w/ syst)\n• CLfit (profile, 1 fit)\n• CLfit2 (profile, 2 fits)" as ENGINES <<collie>>
+
+  component "High-level modes\n• CrossSectionLimit\n• ExclusionLimit\n• ThreeSigmaEvidence\n• CrossSectionCalc" as MODES <<collie>>
+
+  component "Executables\ncollieLimitCalc.exe\ncollieXsecCalc.exe\ncollieFastApprox.exe" as EXES <<collie>>
+
+  component "Tools\nresultsFileCombiner.exe\ncollieXsecFitLoader.exe" as TOOLS <<collie>>
+
+  database "Result files\n(ROOT)\nlimits, CLs curves,\nLLR distributions, scans" as RES <<data>>
+}
+
+' =============================================================================
+' Bundled numerical libraries (used by limit stage)
+' =============================================================================
+package "Bundled numerical libs" <<ext>> {
+  artifact "libCollieCLHEP.so\n(CLHEP)" as LIBCLHEP <<ext>>
+  artifact "libCollieMinuit.a\n(MINUIT)" as LIBMINUIT <<ext>>
+}
+
+' =============================================================================
+' Source tree / build map (high-level)
+' =============================================================================
+package "Source tree (high-level)" <<ext>> {
+  component "io/" as DIRIO <<ext>>
+  component "limit/" as DIRLIM <<ext>>
+  component "minuit/" as DIRMIN <<ext>>
+  component "CLHEP/" as DIRCL <<ext>>
+  component "examples/\nhsnToy/\nhsnTest/" as DIREX <<ext>>
+}
+
+' --- Layout nudges (portrait stacking) ---------------------------------------
+CFG     -[hidden]d-> HISTS
+HISTS   -[hidden]d-> IOMAKER
+IOMAKER -[hidden]d-> IOFILE
+IOFILE  -[hidden]d-> ENGINES
+ENGINES -[hidden]d-> RES
+RES     -[hidden]d-> LIBCLHEP
+LIBCLHEP -[hidden]d-> DIRIO
+DIRIO   -[hidden]d-> DIRLIM
+DIRLIM  -[hidden]d-> DIRMIN
+DIRMIN  -[hidden]d-> DIRCL
+DIRCL   -[hidden]d-> DIREX
+
+' =============================================================================
+' Relationships: configuration, inputs, and I/O build
+' =============================================================================
+USER -down-> CFG : chooses run\n+ options
+CFG  ..> IOMAKER : steering
+HISTS -down-> IOMAKER : data/sig/bkg\nhistograms
+ROOT  ..> IOMAKER
+IOMAKER --> IOAPI : uses API
+IOAPI  --> GRID
+IOAPI  --> SYST
+IOAPI  -down-> IOFILE : storeFile()
+
+IOFILE --> IOCOND : optional merge
+IOCOND --> IOFILE : consolidated IO file
+
+LIBIO ..> IOAPI : compiled API
+
+' =============================================================================
+' Relationships: limit / xsec calculation data flow
+' =============================================================================
+IOFILE -down-> EXES : input CollieIO
+EXES --> ENGINES
+ENGINES --> MODES
+MODES -down-> RES : write outputs
+
+TOOLS --> RES : combine / post-process
+
+' External / bundled deps
+ROOT <.. IOFILE
+ROOT <.. RES
+LIBLIM ..> LIBMINUIT : minimization\n(profile fits)
+LIBLIM ..> LIBCLHEP : stats utilities
+EXES  ..> LIBLIM : link
+TOOLS ..> LIBLIM : link
+
+' =============================================================================
+' Source tree → build artifacts mapping
+' =============================================================================
+DIRIO  --> LIBIO
+DIRLIM --> LIBLIM
+DIRMIN --> LIBMINUIT
+DIRCL  --> LIBCLHEP
+DIREX  ..> LIBIO
+DIREX  ..> LIBLIM
+
+note bottom of IOFILE
+  <b>Two-stage workflow</b>
+  1) Build a <b>CollieIO</b> ROOT file from input histograms
+     (channels, mass points, systematics).
+  2) Run CLs / profile-likelihood calculations reading that file
+     to produce limits, evidence, or cross-section results.
+end note
+
+note bottom of ENGINES
+  <b>Core statistical model (summary)</b>
+  lambda_i(mu,theta) = b_i(theta) + mu * s_i(theta)
+
+  <b>Profile objective</b> (Poisson deviance + constraints):
+  q(mu,theta) = 2 * sum_i [ lambda_i - n_i - n_i * ln(lambda_i/n_i) ]
+                + DeltaChi2_syst(theta)
+
+  <b>Test statistic → CLs</b>
+  LLR(mu) = -2 ln( L(data|mu, theta_hat_mu) / L(data|0, theta_hat_0) )
+  CLs = CLs+b / CLb ; 95% exclusion at CLs(mu95)=0.05
+end note
+
+@enduml
