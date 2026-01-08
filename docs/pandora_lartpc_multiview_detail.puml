@@ -34,7 +34,7 @@ skinparam componentStyle rectangle
 
 ' --- Color palette via stereotypes -------------------------------------------
 skinparam package<<view>> {
-  BackgroundColor #E5E7EB
+  BackgroundColor #E0F2FE
   BorderColor $EXT
   FontColor $INK
 }
@@ -58,7 +58,7 @@ skinparam component<<optical>> {
 }
 
 skinparam artifact<<data>> {
-  BackgroundColor #F3F4F6
+  BackgroundColor #FEF3C7
   BorderColor $DATA
   FontColor $INK
 }
@@ -68,8 +68,6 @@ skinparam note {
   BorderColor $NOTE_BR
   FontColor $INK
 }
-
-title <size:18><b>Inside PandoraNu (per slice): multi-view 2D → 3D pattern recognition</b></size>
 
 ' --- Upstream context (how a slice appears) -----------------------------------
 artifact "TPC hits\n(cosmic-removed)" as CRH <<data>>
