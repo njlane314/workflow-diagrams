@@ -1,0 +1,153 @@
+@startuml
+' =============================================================================
+' EventSelectionFilter analysis flow (portrait tuned)
+' =============================================================================
+!pragma layout smetana
+
+top to bottom direction
+scale max 1100*1650
+
+skinparam defaultFontSize 10
+skinparam nodesep 20
+skinparam ranksep 24
+
+!$INK     = "#111827"
+!$MUTED   = "#6B7280"
+!$ART     = "#1D4ED8"
+!$TOOLS   = "#15803D"
+!$CFG     = "#B45309"
+!$DATA    = "#111827"
+!$NOTE_BG = "#F9FAFB"
+!$NOTE_BR = "#9CA3AF"
+
+hide stereotype
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontColor $INK
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam dpi 160
+skinparam defaultTextAlignment center
+skinparam LineThickness 1
+skinparam ArrowThickness 1.1
+skinparam ArrowColor $INK
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+skinparam component<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+skinparam artifact<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+
+skinparam package<<art>> {
+  BackgroundColor #E3EAFD
+  BorderColor $ART
+  FontColor $INK
+}
+skinparam component<<art>> {
+  BackgroundColor #E3EAFD
+  BorderColor $ART
+  FontColor $INK
+}
+
+skinparam package<<tools>> {
+  BackgroundColor #E0F2E9
+  BorderColor $TOOLS
+  FontColor $INK
+}
+skinparam component<<tools>> {
+  BackgroundColor #E0F2E9
+  BorderColor $TOOLS
+  FontColor $INK
+}
+
+skinparam database<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
+skinparam artifact<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
+
+skinparam note {
+  BackgroundColor $NOTE_BG
+  BorderColor $NOTE_BR
+  FontColor $INK
+}
+
+' =============================================================================
+' Configuration
+' =============================================================================
+component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
+artifact "FHiCL job config\nSelectionTool + AnalysisTools" as FCL <<cfg>>
+
+' =============================================================================
+' art runtime + module
+' =============================================================================
+package "art event processing" <<art>> {
+  component "EventSelectionFilter\n(EDFilter module)" as FILTER <<art>>
+  component "TFileService\nROOT output" as TFS <<art>>
+  database "art::Event\n(run/subrun/event)" as EVENT <<data>>
+}
+
+' =============================================================================
+' Tools and plugins
+' =============================================================================
+package "Selection + analysis tools" <<tools>> {
+  component "SelectionToolBase\n(NeutrinoSelection)" as SEL <<tools>>
+  component "AnalysisToolBase\n(Default, Energy, Truth, ... )" as ANA <<tools>>
+}
+
+' =============================================================================
+' Inputs and intermediate data
+' =============================================================================
+package "Reco products" <<data>> {
+  artifact "PFParticle proxy\n+ associated Track/Vertex/Cluster" as PFP <<data>>
+}
+
+' =============================================================================
+' Output
+' =============================================================================
+artifact "TTree output\nEventSelectionFilter + SubRun" as TREE <<data>>
+
+' =============================================================================
+' Relationships: configuration & startup
+' =============================================================================
+USER -down-> FCL : selects workflow
+FCL ..> FILTER : module configuration
+FCL ..> SEL : SelectionTool pset
+FCL ..> ANA : AnalysisTools psets
+
+' =============================================================================
+' Relationships: event loop
+' =============================================================================
+EVENT -down-> FILTER : filter(art::Event)
+FILTER --> PFP : proxy::getCollection
+FILTER --> SEL : selectEvent(slice)
+FILTER --> ANA : analyseEvent + analyseSlice
+FILTER --> TFS : creates TTrees
+TFS --> TREE : ROOT output file
+
+' =============================================================================
+' Selection flow
+' =============================================================================
+PFP -down-> FILTER : BuildPFPMap\nAddDaughters
+FILTER -down-> SEL : neutrino slice
+SEL -down-> FILTER : selected flag
+FILTER -down-> ANA : per-slice analysis
+
+note bottom of FILTER
+  1) ResetTTree\n2) Build PFParticle proxy\n3) Analyse full event\n4) Build neutrino slices\n5) Select + analyse slices\n6) Fill TTrees\n7) Optionally filter event
+end note
+
+@enduml
