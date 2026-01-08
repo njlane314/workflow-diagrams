@@ -8,8 +8,8 @@ top to bottom direction
 scale max 1100*1650
 
 skinparam defaultFontSize 10
-skinparam nodesep 20
-skinparam ranksep 24
+skinparam nodesep 14
+skinparam ranksep 18
 
 !$INK     = "#111827"
 !$MUTED   = "#6B7280"
@@ -105,7 +105,9 @@ package "art event processing" <<art>> {
 ' =============================================================================
 package "Selection + analysis tools" <<tools>> {
   component "SelectionToolBase\n(NeutrinoSelection)" as SEL <<tools>>
-  component "AnalysisToolBase\n(Default, Energy, Truth, ... )" as ANA <<tools>>
+  component "AnalysisToolBase\n(Default, Energy,\nTruth, ...)" as ANA <<tools>>
+  ' Keep the tools stacked to reduce horizontal spread/whitespace
+  SEL -[hidden]down-> ANA
 }
 
 ' =============================================================================
@@ -123,10 +125,10 @@ artifact "TTree output\nEventSelectionFilter + SubRun" as TREE <<data>>
 ' =============================================================================
 ' Relationships: configuration & startup
 ' =============================================================================
-USER -down-> FCL : selects workflow
-FCL ..> FILTER : module configuration
-FCL ..> SEL : SelectionTool pset
-FCL ..> ANA : AnalysisTools psets
+USER -down-> FCL : selects\nworkflow
+FCL ..> FILTER : module\nconfiguration
+FCL ..> SEL : SelectionTool\npset
+FCL ..> ANA : AnalysisTools\npsets
 
 ' =============================================================================
 ' Relationships: event loop
@@ -134,9 +136,9 @@ FCL ..> ANA : AnalysisTools psets
 EVENT -down-> FILTER : filter(art::Event)
 FILTER --> PFP : proxy::getCollection
 FILTER --> SEL : selectEvent(slice)
-FILTER --> ANA : analyseEvent + analyseSlice
-FILTER --> TFS : creates TTrees
-TFS --> TREE : ROOT output file
+FILTER --> ANA : analyseEvent\n+ analyseSlice
+FILTER --> TFS : creates\nTTrees
+TFS --> TREE : ROOT\noutput file
 
 ' =============================================================================
 ' Selection flow
@@ -144,10 +146,16 @@ TFS --> TREE : ROOT output file
 PFP -down-> FILTER : BuildPFPMap\nAddDaughters
 FILTER -down-> SEL : neutrino slice
 SEL -down-> FILTER : selected flag
-FILTER -down-> ANA : per-slice analysis
+FILTER -down-> ANA : per-slice\nanalysis
 
 note bottom of FILTER
-  1) ResetTTree\n2) Build PFParticle proxy\n3) Analyse full event\n4) Build neutrino slices\n5) Select + analyse slices\n6) Fill TTrees\n7) Optionally filter event
+  1) ResetTTree
+  2) Build PFParticle proxy
+  3) Analyse full event
+  4) Build neutrino slices
+  5) Select + analyse slices
+  6) Fill TTrees
+  7) Optionally filter event
 end note
 
 @enduml
