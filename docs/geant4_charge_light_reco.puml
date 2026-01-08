@@ -1,0 +1,236 @@
+@startuml
+' =============================================================================
+' Geant4 → (charge+light) generation → transport → digitization → reconstruction
+' (A4 portrait tuned; component/data-flow style similar to your example)
+' =============================================================================
+!pragma layout smetana
+top to bottom direction
+scale max 1100*1650
+
+skinparam defaultFontSize 10
+skinparam nodesep 22
+skinparam ranksep 24
+
+' --- Minimal technical theme --------------------------------------------------
+!$INK     = "#111827"
+!$MUTED   = "#6B7280"
+!$CFG     = "#B45309"
+!$DET     = "#9A3412"
+!$G4      = "#1D4ED8"
+!$SIM     = "#15803D"
+!$RECO    = "#6D28D9"
+!$EXT     = "#4B5563"
+!$DATA    = "#111827"
+!$NOTE_BG = "#F9FAFB"
+!$NOTE_BR = "#9CA3AF"
+
+hide stereotype
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontColor $INK
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam dpi 160
+skinparam defaultTextAlignment center
+skinparam LineThickness 1
+skinparam ArrowThickness 1.1
+skinparam ArrowColor $INK
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+' --- Stereotype palette -------------------------------------------------------
+skinparam component<<cfg>> { BackgroundColor #FEF3C7; BorderColor $CFG; FontColor $INK }
+skinparam artifact<<cfg>>  { BackgroundColor #FEF3C7; BorderColor $CFG; FontColor $INK }
+
+skinparam package<<det>>   { BackgroundColor #FFF7ED; BorderColor $DET; FontColor $INK }
+skinparam component<<det>> { BackgroundColor #FFF7ED; BorderColor $DET; FontColor $INK }
+skinparam database<<det>>  { BackgroundColor #FFF7ED; BorderColor $DET; FontColor $INK }
+
+skinparam package<<g4>>    { BackgroundColor #E3EAFD; BorderColor $G4; FontColor $INK }
+skinparam component<<g4>>  { BackgroundColor #E3EAFD; BorderColor $G4; FontColor $INK }
+
+skinparam package<<sim>>   { BackgroundColor #E0F2E9; BorderColor $SIM; FontColor $INK }
+skinparam component<<sim>> { BackgroundColor #E0F2E9; BorderColor $SIM; FontColor $INK }
+
+skinparam package<<reco>>  { BackgroundColor #EDE9FE; BorderColor $RECO; FontColor $INK }
+skinparam component<<reco>>{ BackgroundColor #EDE9FE; BorderColor $RECO; FontColor $INK }
+
+skinparam package<<ext>>   { BackgroundColor #E5E7EB; BorderColor $EXT; FontColor $INK }
+skinparam component<<ext>> { BackgroundColor #E5E7EB; BorderColor $EXT; FontColor $INK }
+
+skinparam artifact<<data>> { BackgroundColor #F3F4F6; BorderColor $DATA; FontColor $INK }
+skinparam database<<data>> { BackgroundColor #F3F4F6; BorderColor $DATA; FontColor $INK }
+
+skinparam note { BackgroundColor $NOTE_BG; BorderColor $NOTE_BR; FontColor $INK }
+
+' =============================================================================
+' Configuration / steering
+' =============================================================================
+component "Job launcher / workflow\n(sim → digi → reco)\n(exec: lar / gaudirun / custom)" as USER <<cfg>>
+artifact "Run configuration\n(FHiCL/JSON/YAML)\n• geometry/materials\n• physics list & cuts\n• LAr yields/recomb.\n• drift/optics\n• electronics/PD response\n• reco chain" as CFG <<cfg>>
+
+' =============================================================================
+' External sources / inputs
+' =============================================================================
+package "External sources" <<ext>> {
+  component "Event generator\n(GENIE / MARLEY / NEUT / cosmic)\n→ primaries" as GEN <<ext>>
+  component "Overlay sources\n(pileup, radiological, cosmics)\n(optional)" as OVR <<ext>>
+}
+
+package "Detector description & conditions" <<det>> {
+  artifact "Geometry + materials\n(GDML / geometry service)\n(active volume, readout, PDs)" as GEO <<det>>
+  database "Fields / maps / conditions\nE-field, space-charge\nlifetime τe, gains, noise\noptical properties\n(run-dependent)" as COND <<det>>
+}
+
+' =============================================================================
+' Geant4 transport (truth + energy deposits)
+' =============================================================================
+package "Geant4 transport\n(energy loss + secondary production)" <<g4>> {
+  component "G4 kernel\n(run manager, tracking,\nstepping)" as G4K <<g4>>
+  component "Physics processes\n(EM, hadronic, decay)\n+ optional optical" as G4P <<g4>>
+  component "Sensitive detectors\n(step logging / hit collections)" as G4SD <<g4>>
+
+  artifact "Truth record\nsimb::MCTruth / MCParticle\n(track ancestry)" as TRUTH <<data>>
+  artifact "Energy deposits\n(IDE / SimEnergyDeposit)\n• x,y,z,t\n• dE, step length\n• particle id" as EDEP <<data>>
+}
+
+' =============================================================================
+' Quanta production (charge + scintillation) from dE
+' =============================================================================
+package "LAr microphysics\n(dE → ionization + excitation)" <<sim>> {
+  component "Yield model\n(W-value, Fano, LET)\n→ Nion, Nex" as YIELD <<sim>>
+  component "Recombination model\n(Box/Birks/ModifiedBox)\n→ Ne + Nγ\n(anti-correlated)" as RECOMB <<sim>>
+  component "Scintillation emission model\nsinglet/triplet + quenching\n→ t_emit spectrum" as SCINT <<sim>>
+
+  artifact "Charge deposits\n(sim::SimChannel / ionization)\n(+ per-step e− counts)" as SIMCH <<data>>
+  artifact "Photon quanta\n(sim::SimPhotons / photon radiants)\n(pos, dir, t_emit, λ)" as SIMPH <<data>>
+}
+
+' =============================================================================
+' Charge branch: electron transport → electronics → digitization
+' =============================================================================
+package "Charge transport & electronics" <<sim>> {
+  component "Electron drift transport\nv_drift(E,T)\nlong./trans. diffusion\nattachment (τe)\nspace-charge distortions" as DRIFT <<sim>>
+  component "Readout response\n(weighting field / field response)\n→ induced current/charge" as QRESP <<sim>>
+  component "Electronics response\n(shaping, gain)\nnoise (coherent + incoherent)" as ELEC <<sim>>
+  artifact "Digitized TPC waveforms\nraw::RawDigit\n(or pixel packets)" as RAWDIG <<data>>
+}
+
+' =============================================================================
+' Light branch: photon transport → PD response → digitization
+' =============================================================================
+package "Photon transport & PD response" <<sim>> {
+  component "Optical transport\nRayleigh + absorption\nreflections / boundaries\nWLS (TPB)\n(full G4Optical OR fast library)" as OPTTR <<sim>>
+  component "Photon detector response\nPDE/QE, gain, timing\ndark noise / afterpulsing" as PDRESP <<sim>>
+  artifact "Digitized light waveforms\nraw::OpDetWaveform" as RAWOP <<data>>
+}
+
+' =============================================================================
+' Reconstruction (charge + light + combined)
+' =============================================================================
+package "Reconstruction" <<reco>> {
+
+  package "Charge reconstruction" <<reco>> {
+    component "Signal processing\n(deconvolution, ROI)\n→ recob::Wire" as SIGPROC <<reco>>
+    component "Hit finding\n→ recob::Hit\n(+ associations)" as HITS <<reco>>
+    component "Pattern recognition\n2D clusters → 3D objects\ntracks/showers/vertices" as PATREC <<reco>>
+    component "Calorimetry & PID\n(dE/dx, range)\nrecomb. + lifetime corr." as CALO <<reco>>
+  }
+
+  package "Light reconstruction" <<reco>> {
+    component "Optical waveform processing\nfiltering / pulse finding\n→ recob::OpHit" as OPHIT <<reco>>
+    component "Flash building\n→ recob::OpFlash\n(t0, position)" as FLASH <<reco>>
+  }
+
+  component "TPC–flash matching\nUse light t0 to set x\n(+ cosmic rejection)" as MATCH <<reco>>
+  component "High-level event objects\nPFParticle graph\nselections / ML" as HLEV <<reco>>
+}
+
+artifact "Output\n(art/ROOT or framework I/O)\ntruth + sim + raw + reco\n+ provenance" as OUT <<data>>
+
+' =============================================================================
+' Layout nudges (portrait stacking)
+' =============================================================================
+CFG   -[hidden]d-> GEO
+GEO   -[hidden]d-> G4K
+G4K   -[hidden]d-> YIELD
+YIELD -[hidden]d-> DRIFT
+DRIFT -[hidden]d-> SIGPROC
+
+' =============================================================================
+' Wiring: configuration + dependencies
+' =============================================================================
+USER -down-> CFG : selects workflow\n+ parameters
+CFG ..> G4K   : physics list\ncuts, options
+CFG ..> YIELD : yields/recomb.\nscint params
+CFG ..> DRIFT : drift/diffusion\nattachment
+CFG ..> OPTTR : optical model\nboundaries
+CFG ..> ELEC  : shaping/noise
+CFG ..> SIGPROC : reco configs
+
+GEO  ..> G4K  : geometry\nmaterials
+COND ..> G4P  : material props\n(optical, etc.)
+COND ..> DRIFT : E-field/maps\nτe corrections
+COND ..> OPTTR : absorption\nRayleigh, reflectivity
+
+GEN -down-> G4K : primary particles
+OVR ..> G4K : optional overlays
+
+G4K --> G4P
+G4K --> G4SD
+G4SD -down-> EDEP : step-wise dE records
+G4K  -down-> TRUTH : truth ancestry
+
+EDEP  -down-> YIELD
+YIELD -down-> RECOMB
+RECOMB -down-> SCINT
+RECOMB -down-> SIMCH : electron yield
+SCINT  -down-> SIMPH : photon yield
+
+' --- Charge branch ------------------------------------------------------------
+SIMCH -down-> DRIFT
+DRIFT -down-> QRESP
+QRESP -down-> ELEC
+ELEC  -down-> RAWDIG
+
+' --- Light branch -------------------------------------------------------------
+SIMPH -down-> OPTTR
+OPTTR -down-> PDRESP
+PDRESP -down-> RAWOP
+
+' --- Reconstruction -----------------------------------------------------------
+RAWDIG -down-> SIGPROC
+SIGPROC -down-> HITS
+HITS -down-> PATREC
+PATREC -down-> CALO
+
+RAWOP -down-> OPHIT
+OPHIT -down-> FLASH
+
+PATREC -down-> MATCH
+FLASH  -down-> MATCH
+MATCH  -down-> HLEV
+
+HLEV  -down-> OUT
+TRUTH ..> OUT : persist truth
+EDEP  ..> OUT : persist sim (optional)
+RAWDIG ..> OUT
+RAWOP  ..> OUT
+
+note bottom of YIELD
+  Conceptual split:
+  • Geant4 gives <b>where/when</b> energy was deposited (dE, x,y,z,t).
+  • LAr microphysics maps dE → <b>Ne</b> (free e− after recombination)
+    and <b>Nγ</b> (scintillation photons) with a time profile (singlet/triplet).
+  • “Transport” then moves e− (drift) and photons (optics) to readout.
+end note
+
+note bottom of MATCH
+  Light provides <b>t0</b> (prompt timing), used to:
+  • convert TPC drift time → x-position
+  • improve matching / background rejection
+  • enable combined charge+light energy reconstruction
+end note
+
+@enduml
