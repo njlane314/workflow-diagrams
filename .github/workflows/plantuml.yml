@@ -1,10 +1,11 @@
 name: plantuml
 
+
 on:
   workflow_dispatch:
   push:
     paths:
-      - 'docs/**/*.puml'
+      - 'docs/*.puml'
       - '.github/workflows/plantuml.yml'
 
 permissions:
@@ -25,17 +26,12 @@ jobs:
           java-version: 17
 
       - run: sudo apt-get update
-      - run: sudo apt-get install -y graphviz
-
-      - name: Download PlantUML jar
-        run: |
-          curl -L -o /tmp/plantuml.jar \
-            https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
+      - run: sudo apt-get install -y graphviz plantuml
 
       - run: |
-        for diagram in docs/*.puml; do
-          java -jar /tmp/plantuml.jar -tpdf -overwrite "${diagram}"
-        done
+          for diagram in docs/*.puml; do
+            plantuml -tpdf -overwrite "${diagram}"
+          done
 
       - name: Commit diagrams
         run: |
