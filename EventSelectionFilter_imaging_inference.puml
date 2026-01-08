@@ -1,0 +1,165 @@
+@startuml
+' =============================================================================
+' EventSelectionFilter additions (separate diagram): imaging + inference
+' Intended to be shown after the "standard" EventSelectionFilter flow diagram
+' =============================================================================
+!pragma layout smetana
+
+top to bottom direction
+scale max 1100*1350
+
+skinparam defaultFontSize 10
+skinparam nodesep 10
+skinparam ranksep 14
+skinparam padding 2
+
+!$INK     = "#111827"
+!$MUTED   = "#6B7280"
+!$ART     = "#1D4ED8"
+!$TOOLS   = "#15803D"
+!$CFG     = "#B45309"
+!$DATA    = "#111827"
+!$NOTE_BG = "#F9FAFB"
+!$NOTE_BR = "#9CA3AF"
+
+hide stereotype
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontColor $INK
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam dpi 160
+skinparam defaultTextAlignment center
+skinparam LineThickness 1
+skinparam ArrowThickness 1.1
+skinparam ArrowColor $INK
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+skinparam component<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+skinparam artifact<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+
+skinparam package<<art>> {
+  BackgroundColor #E3EAFD
+  BorderColor $ART
+  FontColor $INK
+}
+skinparam component<<art>> {
+  BackgroundColor #E3EAFD
+  BorderColor $ART
+  FontColor $INK
+}
+
+skinparam package<<tools>> {
+  BackgroundColor #E0F2E9
+  BorderColor $TOOLS
+  FontColor $INK
+}
+skinparam component<<tools>> {
+  BackgroundColor #E0F2E9
+  BorderColor $TOOLS
+  FontColor $INK
+}
+
+skinparam artifact<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
+
+skinparam note {
+  BackgroundColor $NOTE_BG
+  BorderColor $NOTE_BR
+  FontColor $INK
+}
+
+' =============================================================================
+' Configuration (minimal)
+' =============================================================================
+component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
+artifact "FHiCL job config\n+ ImageProducer\n+ InferenceProducer\n+ ImageAnalysis (tool)" as FCL <<cfg>>
+
+' =============================================================================
+' New upstream producers (run before the filter on the art path)
+' =============================================================================
+package "Upstream producers" <<art>> {
+  component "ImageProducer\n(EDProducer)" as IMGPROD <<art>>
+  component "InferenceProducer\n(EDProducer)" as INFERPROD <<art>>
+  IMGPROD -down-> INFERPROD : art path
+}
+
+' =============================================================================
+' Filter stage (existing) + new analysis tool (added)
+' =============================================================================
+package "Selection stage" <<art>> {
+  component "EventSelectionFilter\n(EDFilter)" as FILTER <<art>>
+  component "ImageAnalysis\n(AnalysisToolBase)" as IMGANA <<tools>>
+  component "TFileService\nROOT output" as TFS <<art>>
+
+  FILTER -down-> TFS
+  FILTER ..> IMGANA : analyseSlice(...)
+  IMGANA -[hidden]down-> TFS
+}
+
+' =============================================================================
+' Products (only what the modification adds / consumes)
+' =============================================================================
+package "New products" {
+  artifact "Nu-slice inputs\n(Hits/Wires/SP\nfrom reco slice)" as NUSLICE_IN <<data>>
+  artifact "ImageProducts \"NuSlice\"\nU,V,W ADC\n(+ semantic on MC)" as IMAGES <<data>>
+  artifact "InferencePredProduct\n(model scores)" as PRED <<data>>
+  artifact "InferencePerfProduct\n(timing/RSS)" as PERF <<data>>
+  artifact "TTree branches\n(images + inference\n(+ vtx flags))" as TREE <<data>>
+
+  NUSLICE_IN -[hidden]down-> IMAGES
+  IMAGES -[hidden]down-> PRED
+  PRED -[hidden]down-> PERF
+  PERF -[hidden]down-> TREE
+}
+
+' =============================================================================
+' Wiring: configuration
+' =============================================================================
+USER -down-> FCL : selects\nworkflow
+FCL ..> IMGPROD : pset
+FCL ..> INFERPROD : models +\npaths
+FCL ..> FILTER : add ImageAnalysis\n(tool pset)
+
+' =============================================================================
+' Wiring: production + consumption
+' =============================================================================
+NUSLICE_IN --> IMGPROD : collect neutrino\nslice hits\n+ center images
+IMGPROD --> IMAGES : produces
+
+IMAGES --> INFERPROD : planes (U,V,W)
+INFERPROD --> PRED : produces
+INFERPROD --> PERF : produces
+
+INFERPROD -down-> FILTER : art path
+
+IMAGES ..> IMGANA : read NuSlice
+PRED ..> IMGANA : read scores
+PERF ..> IMGANA : read metrics
+IMGANA --> TFS : fill branches
+TFS --> TREE : write
+
+note bottom of IMGPROD
+  Centers images using charge-weighted\nspacepoints (trimmed) when available.
+  Semantic labels are filled for MC only.
+end note
+
+note bottom of INFERPROD
+  Runs external inference on U/V/W ADC images.
+  Skips inference when images are empty.
+end note
+
+@enduml
