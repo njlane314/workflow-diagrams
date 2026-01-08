@@ -6,11 +6,12 @@
 
 ' --- A4 portrait fit helpers -------------------------------------------------
 top to bottom direction
-scale max 1100*1650
+' A4 @ ~160 dpi is ~1320x1870 px; keep a margin to avoid clipping.
+scale max 1250*1800
 
 skinparam defaultFontSize 10
-skinparam nodesep 22
-skinparam ranksep 24
+skinparam nodesep 18
+skinparam ranksep 22
 
 '
 ' --- Technical engineering theme (minimal, clean) -----------------------------
@@ -109,99 +110,127 @@ artifact "Steering inputs\n(command line + config)\n• channels / mass grid\n�
 ' =============================================================================
 ' External inputs & runtime deps
 ' =============================================================================
-package "External inputs / deps" <<ext>> {
+package "External inputs\n& deps" <<ext>> {
   artifact "ROOT histograms\n(data, signal, backgrounds)\nTH1/TH2/TH3" as HISTS <<ext>>
   component "ROOT\n(histograms + I/O)" as ROOT <<ext>>
+
+  ' force vertical stack inside package
+  HISTS -[hidden]d-> ROOT
 }
 
 ' =============================================================================
 ' Stage 1: Collie I/O creation
 ' =============================================================================
-package "Stage 1: Collie I/O creation" <<collie>> {
+package "Stage 1:\nI/O creation" <<collie>> {
   artifact "libCollieIO.so" as LIBIO <<collie>>
 
-  component "collieIOmaker.exe\n(or user code)\n• read ROOT hists\n• define channels\n• write CollieIO file" as IOMAKER <<collie>>
+  component "collieIOmaker.exe\n(or user code)\n• read ROOT hists\n• define channels\n• write IO" as IOMAKER <<collie>>
 
-  component "CollieIOFile API\n(io/include/CollieIOFile.hh)\ncreateChannel()\ncreateMassPoint()\ncreate*Systematic()\nstoreFile()" as IOAPI <<collie>>
+  component "CollieIOFile API\n(CollieIOFile.hh)\ncreateChannel()\ncreateMassPoint()\ncreate*Systematic()\nstoreFile()" as IOAPI <<collie>>
 
-  component "Mass points / grids\n(1D / 2D / 3D)" as GRID <<collie>>
-  component "Systematics\nflat + shape\n(1D/2D, optional event lists)" as SYST <<collie>>
+  component "Mass grid\n(1D / 2D / 3D)" as GRID <<collie>>
+  component "Systematics\nflat + shape\n(1D/2D, optional lists)" as SYST <<collie>>
 
   component "collieIOcondenser.exe\n(merge IO files)" as IOCOND <<collie>>
 
-  database "CollieIO file\n(ROOT)\nchannels + mass points\n+ systematics" as IOFILE <<data>>
+  database "CollieIO file(s)\n(ROOT)\nchannels + mass points\n+ systematics" as IOFILES <<data>>
+  database "Merged CollieIO\n(ROOT)\n(optional)" as IOMERGED <<data>>
+
+  ' force vertical stack inside package
+  LIBIO   -[hidden]d-> IOMAKER
+  IOMAKER -[hidden]d-> IOAPI
+  IOAPI   -[hidden]d-> GRID
+  GRID    -[hidden]d-> SYST
+  SYST    -[hidden]d-> IOFILES
+  IOFILES -[hidden]d-> IOCOND
+  IOCOND  -[hidden]d-> IOMERGED
 }
 
 ' =============================================================================
 ' Stage 2: limits & cross-section calculations
 ' =============================================================================
-package "Stage 2: Limit & cross-section calculation" <<collie>> {
+package "Stage 2:\nLimits & xsec\ncalculation" <<collie>> {
   artifact "libCollieLimit.so" as LIBLIM <<collie>>
 
-  component "CLs engines\n• CLfast (no syst)\n• CLsyst (w/ syst)\n• CLfit (profile, 1 fit)\n• CLfit2 (profile, 2 fits)" as ENGINES <<collie>>
-
-  component "High-level modes\n• CrossSectionLimit\n• ExclusionLimit\n• ThreeSigmaEvidence\n• CrossSectionCalc" as MODES <<collie>>
-
   component "Executables\ncollieLimitCalc.exe\ncollieXsecCalc.exe\ncollieFastApprox.exe" as EXES <<collie>>
+
+  component "CLs engines\n• CLfast  (no syst)\n• CLsyst  (w/ syst)\n• CLfit   (profile, 1 fit)\n• CLfit2  (profile, 2 fits)" as ENGINES <<collie>>
+
+  component "High-level modes\nCrossSectionLimit\nExclusionLimit\nThreeSigmaEvidence\nCrossSectionCalc" as MODES <<collie>>
 
   component "Tools\nresultsFileCombiner.exe\ncollieXsecFitLoader.exe" as TOOLS <<collie>>
 
   database "Result files\n(ROOT)\nlimits, CLs curves,\nLLR distributions, scans" as RES <<data>>
+
+  ' force vertical stack inside package
+  LIBLIM  -[hidden]d-> EXES
+  EXES    -[hidden]d-> ENGINES
+  ENGINES -[hidden]d-> MODES
+  MODES   -[hidden]d-> TOOLS
+  TOOLS   -[hidden]d-> RES
 }
 
 ' =============================================================================
 ' Bundled numerical libraries (used by limit stage)
 ' =============================================================================
-package "Bundled numerical libs" <<ext>> {
+package "Bundled numerical\nlibraries" <<ext>> {
   artifact "libCollieCLHEP.so\n(CLHEP)" as LIBCLHEP <<ext>>
   artifact "libCollieMinuit.a\n(MINUIT)" as LIBMINUIT <<ext>>
+
+  ' force vertical stack inside package
+  LIBCLHEP -[hidden]d-> LIBMINUIT
 }
 
 ' =============================================================================
 ' Source tree / build map (high-level)
 ' =============================================================================
-package "Source tree (high-level)" <<ext>> {
+package "Source tree\n(high-level)" <<ext>> {
   component "io/" as DIRIO <<ext>>
   component "limit/" as DIRLIM <<ext>>
   component "minuit/" as DIRMIN <<ext>>
   component "CLHEP/" as DIRCL <<ext>>
   component "examples/\nhsnToy/\nhsnTest/" as DIREX <<ext>>
+
+  ' force vertical stack inside package
+  DIRIO  -[hidden]d-> DIRLIM
+  DIRLIM -[hidden]d-> DIRMIN
+  DIRMIN -[hidden]d-> DIRCL
+  DIRCL  -[hidden]d-> DIREX
 }
 
-' --- Layout nudges (portrait stacking) ---------------------------------------
+' =============================================================================
+' Cross-package layout nudges (portrait stacking)
+' =============================================================================
 CFG     -[hidden]d-> HISTS
 HISTS   -[hidden]d-> IOMAKER
-IOMAKER -[hidden]d-> IOFILE
-IOFILE  -[hidden]d-> ENGINES
-ENGINES -[hidden]d-> RES
+IOFILES -[hidden]d-> EXES
 RES     -[hidden]d-> LIBCLHEP
 LIBCLHEP -[hidden]d-> DIRIO
-DIRIO   -[hidden]d-> DIRLIM
-DIRLIM  -[hidden]d-> DIRMIN
-DIRMIN  -[hidden]d-> DIRCL
-DIRCL   -[hidden]d-> DIREX
 
 ' =============================================================================
 ' Relationships: configuration, inputs, and I/O build
 ' =============================================================================
-USER -down-> CFG : chooses run\n+ options
+USER -down-> CFG : selects run\n+ options
 CFG  ..> IOMAKER : steering
 HISTS -down-> IOMAKER : data/sig/bkg\nhistograms
 ROOT  ..> IOMAKER
-IOMAKER --> IOAPI : uses API
-IOAPI  --> GRID
-IOAPI  --> SYST
-IOAPI  -down-> IOFILE : storeFile()
 
-IOFILE --> IOCOND : optional merge
-IOCOND --> IOFILE : consolidated IO file
+IOMAKER --> IOAPI : uses API
+IOAPI --> GRID
+IOAPI --> SYST
+IOAPI -down-> IOFILES : storeFile()
+
+IOFILES -down-> IOCOND : optional merge
+IOCOND  -down-> IOMERGED : write merged
 
 LIBIO ..> IOAPI : compiled API
 
 ' =============================================================================
 ' Relationships: limit / xsec calculation data flow
 ' =============================================================================
-IOFILE -down-> EXES : input CollieIO
+IOFILES  -down-> EXES : input CollieIO
+IOMERGED -down-> EXES : (alt input)\nmerged IO
+
 EXES --> ENGINES
 ENGINES --> MODES
 MODES -down-> RES : write outputs
@@ -209,8 +238,10 @@ MODES -down-> RES : write outputs
 TOOLS --> RES : combine / post-process
 
 ' External / bundled deps
-ROOT <.. IOFILE
+ROOT <.. IOFILES
+ROOT <.. IOMERGED
 ROOT <.. RES
+
 LIBLIM ..> LIBMINUIT : minimization\n(profile fits)
 LIBLIM ..> LIBCLHEP : stats utilities
 EXES  ..> LIBLIM : link
@@ -226,25 +257,29 @@ DIRCL  --> LIBCLHEP
 DIREX  ..> LIBIO
 DIREX  ..> LIBLIM
 
-note bottom of IOFILE
+note bottom of IOFILES
   <b>Two-stage workflow</b>
-  1) Build a <b>CollieIO</b> ROOT file from input histograms
+  1) Build CollieIO ROOT files from histograms
      (channels, mass points, systematics).
-  2) Run CLs / profile-likelihood calculations reading that file
-     to produce limits, evidence, or cross-section results.
+  2) Run CLs / profile-likelihood calculations
+     to produce limits, evidence, or xsec results.
 end note
 
 note bottom of ENGINES
-  <b>Core statistical model (summary)</b>
-  lambda_i(mu,theta) = b_i(theta) + mu * s_i(theta)
+  <b>Model</b>
+  lambda_i(mu,theta) = b_i(theta) + mu*s_i(theta)
 
-  <b>Profile objective</b> (Poisson deviance + constraints):
-  q(mu,theta) = 2 * sum_i [ lambda_i - n_i - n_i * ln(lambda_i/n_i) ]
-                + DeltaChi2_syst(theta)
+  <b>Profile objective</b>
+  q(mu,theta) = 2 * sum_i [
+    lambda_i - n_i - n_i*ln(lambda_i/n_i)
+  ] + DeltaChi2_syst(theta)
 
-  <b>Test statistic → CLs</b>
-  LLR(mu) = -2 ln( L(data|mu, theta_hat_mu) / L(data|0, theta_hat_0) )
-  CLs = CLs+b / CLb ; 95% exclusion at CLs(mu95)=0.05
+  <b>LLR & CLs</b>
+  LLR(mu) = -2 ln(
+    L(data|mu, theta_hat_mu) /
+    L(data|0,  theta_hat_0)
+  )
+  CLs = CLs+b / CLb ; exclude at CLs = 0.05
 end note
 
 @enduml
