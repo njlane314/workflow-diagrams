@@ -1,0 +1,175 @@
+@startuml
+' =============================================================================
+' Image creation (ImageProducer): NuSlice image building (U/V/W)
+' Separate diagram focused only on image production
+' =============================================================================
+!pragma layout smetana
+
+top to bottom direction
+scale max 1100*1350
+
+skinparam defaultFontSize 10
+skinparam nodesep 10
+skinparam ranksep 14
+skinparam padding 2
+
+!$INK     = "#111827"
+!$MUTED   = "#6B7280"
+!$ART     = "#1D4ED8"
+!$TOOLS   = "#15803D"
+!$CFG     = "#B45309"
+!$DATA    = "#111827"
+!$NOTE_BG = "#F9FAFB"
+!$NOTE_BR = "#9CA3AF"
+
+hide stereotype
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontColor $INK
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam dpi 160
+skinparam defaultTextAlignment center
+skinparam LineThickness 1
+skinparam ArrowThickness 1.1
+skinparam ArrowColor $INK
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+skinparam component<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+skinparam artifact<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+
+skinparam package<<art>> {
+  BackgroundColor #E3EAFD
+  BorderColor $ART
+  FontColor $INK
+}
+skinparam component<<art>> {
+  BackgroundColor #E3EAFD
+  BorderColor $ART
+  FontColor $INK
+}
+
+skinparam package<<tools>> {
+  BackgroundColor #E0F2E9
+  BorderColor $TOOLS
+  FontColor $INK
+}
+skinparam component<<tools>> {
+  BackgroundColor #E0F2E9
+  BorderColor $TOOLS
+  FontColor $INK
+}
+
+skinparam artifact<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
+
+skinparam note {
+  BackgroundColor $NOTE_BG
+  BorderColor $NOTE_BR
+  FontColor $INK
+}
+
+' =============================================================================
+' Configuration
+' =============================================================================
+component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
+artifact "FHiCL pset\nImageProducer" as FCL <<cfg>>
+artifact "BadChannelFile\n(optional)" as BADCH <<cfg>>
+
+' =============================================================================
+' Inputs (event products + services)
+' =============================================================================
+package "Inputs" {
+  artifact "Reco neutrino slice\nPFParticle → Slice → Hits\n(+ SpacePoints)" as RECO <<data>>
+  artifact "Wires (ROI)\nrecob::Wire" as WIRES <<data>>
+  artifact "MC inputs\nMCParticle + BackTracker\n(MC only)" as MC <<data>>
+
+  component "Geometry\n(wire pitch)" as GEO <<tools>>
+  component "DetectorClocks\n(TickPeriod)" as CLK <<tools>>
+  component "DetectorProperties\n(ConvertTicksToX)" as DETP <<tools>>
+
+  RECO -[hidden]down-> WIRES
+  WIRES -[hidden]down-> MC
+}
+
+' =============================================================================
+' Image creation pipeline
+' =============================================================================
+package "Image creation pipeline" <<art>> {
+  component "ImageProducer\n(EDProducer)" as IMGPROD <<art>>
+
+  package "Helpers" <<tools>> {
+    component "ImageCentering\n(trimmed centroid\nfrom SP charge)" as CENTER <<tools>>
+    component "SemanticClassifier\n(MC semantic labels)" as SEM <<tools>>
+    component "ImageProduction\n(pixel builder)" as BUILD <<tools>>
+    CENTER -[hidden]down-> SEM
+    SEM -[hidden]down-> BUILD
+  }
+
+  artifact "Pixel images\nU/V/W ADC\n(+ semantic)" as PIX <<data>>
+  artifact "ImageProducts \"NuSlice\"\n3 planes U/V/W\nADC (+ semantic on MC)" as OUT <<data>>
+  artifact "ImageDump TTree\n(optional)" as DUMP <<data>>
+
+  IMGPROD -down-> CENTER : compute\ncenter_world
+  IMGPROD -down-> BUILD : build(...)
+  BUILD -down-> PIX : filled images
+  PIX -down-> IMGPROD : pack planes
+  IMGPROD -down-> OUT : produces
+  IMGPROD ..> DUMP : optional\nDumpImages
+}
+
+' =============================================================================
+' Wiring: config
+' =============================================================================
+USER -down-> FCL : selects\nworkflow
+FCL ..> IMGPROD : IsData,\nW/H, ADC thr,\nproducers
+BADCH ..> IMGPROD : filter\nbad channels
+
+' =============================================================================
+' Wiring: data + services
+' =============================================================================
+RECO --> IMGPROD : neutrino slice\nhits + SP assoc
+WIRES --> BUILD : ROI +\nwire geometry
+RECO --> BUILD : slice-hit\nmasking
+DETP --> BUILD : ticks → x
+
+MC --> SEM : MC particles\n+ daughters
+MC --> BUILD : BackTracker\nIDE fractions
+SEM --> BUILD : semantic_label\nvector (MC)
+
+GEO --> IMGPROD : wire pitch\n(U/V/W)
+CLK --> IMGPROD : tick period
+GEO --> BUILD : view mapping\n(U/V/W)
+
+note bottom of IMGPROD
+  1) Collect neutrino-slice hits
+     (primary ν PFParticle → Slice → Hits)
+  2) Remove bad channels (optional)
+  3) Build SP charge map, compute trimmed\n     charge-weighted 3D centroid
+  4) Project centroid to U/V/W and define\n     ImageProperties (origin/pixels)
+  5) Pack U/V/W planes into ImageProducts\n     label: "NuSlice"
+  If no slice hits: produce empty NuSlice.
+end note
+
+note bottom of BUILD
+  Pixel fill loop:
+  - iterate wires, keep only hits in slice
+  - iterate hit tick-range ∩ ROI ranges
+  - ADC > threshold → set pixel (accumulate)
+  - MC only: label pixel via BackTracker\n    (max ideFraction; ambiguous if low)
+end note
+
+@enduml

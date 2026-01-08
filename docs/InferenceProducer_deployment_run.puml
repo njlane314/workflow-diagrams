@@ -1,0 +1,192 @@
+@startuml
+' =============================================================================
+' Inference deployment/run (InferenceProducer + InferenceProduction)
+' Separate diagram focused only on how inference is executed
+' =============================================================================
+!pragma layout smetana
+
+top to bottom direction
+scale max 1100*1350
+
+skinparam defaultFontSize 10
+skinparam nodesep 10
+skinparam ranksep 14
+skinparam padding 2
+
+!$INK     = "#111827"
+!$MUTED   = "#6B7280"
+!$ART     = "#1D4ED8"
+!$TOOLS   = "#15803D"
+!$CFG     = "#B45309"
+!$DATA    = "#111827"
+!$NOTE_BG = "#F9FAFB"
+!$NOTE_BR = "#9CA3AF"
+
+hide stereotype
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Helvetica
+skinparam defaultFontColor $INK
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundCorner 0
+skinparam dpi 160
+skinparam defaultTextAlignment center
+skinparam LineThickness 1
+skinparam ArrowThickness 1.1
+skinparam ArrowColor $INK
+skinparam packageStyle rectangle
+skinparam componentStyle rectangle
+
+skinparam component<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+skinparam artifact<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+
+skinparam package<<art>> {
+  BackgroundColor #E3EAFD
+  BorderColor $ART
+  FontColor $INK
+}
+skinparam component<<art>> {
+  BackgroundColor #E3EAFD
+  BorderColor $ART
+  FontColor $INK
+}
+
+skinparam package<<tools>> {
+  BackgroundColor #E0F2E9
+  BorderColor $TOOLS
+  FontColor $INK
+}
+skinparam component<<tools>> {
+  BackgroundColor #E0F2E9
+  BorderColor $TOOLS
+  FontColor $INK
+}
+
+skinparam artifact<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
+
+skinparam note {
+  BackgroundColor $NOTE_BG
+  BorderColor $NOTE_BR
+  FontColor $INK
+}
+
+' =============================================================================
+' Configuration
+' =============================================================================
+component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
+artifact "FHiCL pset\nInferenceProducer" as FCL <<cfg>>
+
+artifact "Models[]\nLabel/Arch\nWeights/Wrapper\nAssets" as MODELS <<cfg>>
+artifact "ScratchDir\n(+ assets base)" as PATHS <<cfg>>
+
+' =============================================================================
+' Inputs/outputs (event products)
+' =============================================================================
+package "Event products" {
+  artifact "ImageProducts \"NuSlice\"\nU/V/W ADC planes" as IMAGES <<data>>
+  artifact "InferencePredProduct\nper-model scores" as PRED <<data>>
+  artifact "InferencePerfProduct\nper-model timing/RSS" as PERF <<data>>
+
+  IMAGES -[hidden]down-> PRED
+  PRED -[hidden]down-> PERF
+}
+
+' =============================================================================
+' Inference in art + helper
+' =============================================================================
+package "Inference stage" <<art>> {
+  component "InferenceProducer\n(EDProducer)" as INFER <<art>>
+  component "InferenceProduction\nrunInference(...)" as RUN <<tools>>
+  INFER -down-> RUN : call per model
+}
+
+' =============================================================================
+' External runtime + scratch artifacts
+' =============================================================================
+package "Scratch I/O" {
+  artifact "planes.bin\n(CHW float32)\nU,V,W" as REQBIN <<data>>
+  artifact "results.bin\n(IAOK header\n+ scores)" as RESBIN <<data>>
+  artifact "metrics.meta\nkey=value lines" as META <<data>>
+  artifact "stdout / stderr\n(log capture)" as LOGS <<data>>
+  REQBIN -[hidden]down-> RESBIN
+  RESBIN -[hidden]down-> META
+  META -[hidden]down-> LOGS
+}
+
+package "External inference runtime" <<tools>> {
+  component "Apptainer\ncontainer" as APPT <<tools>>
+  artifact "inference_wrapper.sh\n(bash)" as WRAP <<cfg>>
+  artifact "weights file\n(model)" as WTS <<cfg>>
+  artifact "assets dir\n(code/config)" as ASSETS <<cfg>>
+  artifact "/cvmfs\n(bind if needed)" as CVMFS <<cfg>>
+  WRAP -[hidden]down-> WTS
+  WTS -[hidden]down-> ASSETS
+  ASSETS -[hidden]down-> CVMFS
+}
+
+' =============================================================================
+' Wiring: config
+' =============================================================================
+USER -down-> FCL : selects\nworkflow
+FCL ..> INFER : PlanesTag,\nScratchDir,\nDefaultWrapper
+MODELS ..> INFER : per-model\nconfig
+PATHS ..> INFER : resolve\npaths
+
+' =============================================================================
+' Wiring: data flow
+' =============================================================================
+IMAGES --> INFER : planes (U/V/W)
+INFER --> PRED : produces
+INFER --> PERF : produces
+
+RUN --> REQBIN : write request
+REQBIN --> APPT : --in planes.bin
+
+WRAP --> APPT : executed in\ncontainer
+WTS --> APPT : --weights
+ASSETS --> APPT : path resolve\n+ bind
+CVMFS --> APPT : bind\n(optional)
+
+APPT --> RESBIN : --out results.bin
+APPT --> META : --metrics
+APPT --> LOGS : redirect\nstdout/stderr
+
+RESBIN --> RUN : read scores
+META --> RUN : parse perf
+LOGS ..> RUN : on failure\nread stderr
+
+RUN --> INFER : Result{scores, perf}
+INFER --> PRED : fill per_model
+INFER --> PERF : fill per_model
+
+note bottom of INFER
+  Skip inference and write empty products if:
+  - < 3 planes, or missing U/V/W
+  - incompatible (W×H) vs adc.size()
+  - all planes empty (all ADC == 0)
+end note
+
+note bottom of RUN
+  Executes (schematic):
+  apptainer exec --cleanenv --bind <assets>,<scratch>[,/cvmfs]\n
+    <container> /bin/bash <wrapper>\n
+    --in planes.bin --out results.bin --metrics metrics.meta\n
+    --W <width> --H <height> --arch <arch> --weights <weights>
+
+  Then reads results.bin (IAOK/v1) + metrics.meta,\n
+  and cleans up scratch temp files.
+end note
+
+@enduml
