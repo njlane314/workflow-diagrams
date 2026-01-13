@@ -167,14 +167,4 @@ FILTER -down-> TFS : creates\nTTrees
 TFS -down-> TREE : ROOT\noutput file
 ANA ..> TREE : fills\nbranches
 
-legend right
-  1) ResetTTree
-  2) Build PFParticle proxy
-  3) Analyse full event
-  4) Build neutrino slices
-  5) Select + analyse slices
-  6) Fill TTrees
-  7) Optionally filter event
-end legend
-
 @enduml
