@@ -6,12 +6,14 @@
 !pragma layout smetana
 
 top to bottom direction
-scale max 1100*1350
+' A4 portrait @160dpi ~ 1320x1870px: bias toward a taller-than-wide layout.
+scale max 980*1750
 
 skinparam defaultFontSize 10
-skinparam nodesep 10
-skinparam ranksep 14
-skinparam padding 2
+skinparam wrapWidth 160
+skinparam nodesep 6
+skinparam ranksep 18
+skinparam padding 1
 
 !$INK     = "#111827"
 !$MUTED   = "#6B7280"
@@ -107,6 +109,7 @@ package "Selection stage" <<art>> {
 
   FILTER -down-> TFS
   FILTER ..> IMGANA : analyseSlice(...)
+  FILTER -[hidden]down-> IMGANA
   IMGANA -[hidden]down-> TFS
 }
 
@@ -134,6 +137,9 @@ FCL ..> IMGPROD : pset
 FCL ..> INFERPROD : models +\npaths
 FCL ..> FILTER : add ImageAnalysis\n(tool pset)
 
+' Layout nudge: keep configuration above the art-path chain (portrait-friendly)
+FCL -[hidden]down-> IMGPROD
+
 ' =============================================================================
 ' Wiring: production + consumption
 ' =============================================================================
@@ -150,16 +156,16 @@ IMAGES ..> IMGANA : read NuSlice
 PRED ..> IMGANA : read scores
 PERF ..> IMGANA : read metrics
 IMGANA --> TFS : fill branches
-TFS --> TREE : write
+TFS -down-> TREE : write
 
 note bottom of IMGPROD
-  Centers images using charge-weighted\nspacepoints (trimmed) when available.
-  Semantic labels are filled for MC only.
+  Centers images using\ncharge-weighted spacepoints\n(trimmed) when available.
+  Semantic labels are filled\nfor MC only.
 end note
 
 note bottom of INFERPROD
-  Runs external inference on U/V/W ADC images.
-  Skips inference when images are empty.
+  Runs external inference on\nU/V/W ADC images.
+  Skips inference when\nimages are empty.
 end note
 
 @enduml
