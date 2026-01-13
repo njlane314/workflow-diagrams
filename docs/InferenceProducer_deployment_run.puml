@@ -6,11 +6,11 @@
 !pragma layout smetana
 
 top to bottom direction
-scale max 1200*1700
+scale max 1320*1870
 
 skinparam defaultFontSize 10
-skinparam nodesep 10
-skinparam ranksep 18
+skinparam nodesep 14
+skinparam ranksep 14
 skinparam padding 2
 
 !$INK     = "#111827"
@@ -90,34 +90,35 @@ skinparam note {
 ' =============================================================================
 ' Configuration
 ' =============================================================================
-package "Configuration" <<cfg>> {
+package "Configuration" <<cfg>> as CFG {
   component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
   artifact "FHiCL pset\nInferenceProducer" as FCL <<cfg>>
   artifact "Models[]\nLabel/Arch\nWeights/Wrapper\nAssets" as MODELS <<cfg>>
   artifact "ScratchDir\n(+ assets base)" as PATHS <<cfg>>
 
   USER -down-> FCL : selects\nworkflow
-  FCL -[hidden]down-> MODELS
+  USER  -[hidden]right-> MODELS
+  FCL   -[hidden]right-> PATHS
   MODELS -[hidden]down-> PATHS
 }
 
 ' =============================================================================
 ' Inputs/outputs (event products)
 ' =============================================================================
-package "Event products (input)" {
+package "Event products (input)" as EPIN {
   artifact "ImageProducts \"NuSlice\"\nU/V/W ADC planes" as IMAGES <<data>>
 }
 
-package "Event products (output)" {
+package "Event products (output)" as EPOUT {
   artifact "InferencePredProduct\nper-model scores" as PRED <<data>>
   artifact "InferencePerfProduct\nper-model timing/RSS" as PERF <<data>>
-  PRED -[hidden]down-> PERF
+  PRED -[hidden]right-> PERF
 }
 
 ' =============================================================================
 ' Inference in art + helper
 ' =============================================================================
-package "Inference stage" <<art>> {
+package "Inference stage" <<art>> as STAGE {
   component "InferenceProducer\n(EDProducer)" as INFER <<art>>
   component "InferenceProduction\nrunInference(...)" as RUN <<tools>>
   INFER -down-> RUN : runInference\n(per model)
@@ -127,36 +128,48 @@ package "Inference stage" <<art>> {
 ' =============================================================================
 ' External runtime + scratch artifacts
 ' =============================================================================
-package "Scratch (request)" {
+package "Scratch (request)" as SCRREQ {
   artifact "planes.bin\n(CHW float32)\nU,V,W" as REQBIN <<data>>
 }
 
-package "External inference runtime" <<tools>> {
+package "External inference runtime" <<tools>> as RT {
   artifact "inference_wrapper.sh\n(bash)" as WRAP <<cfg>>
-  artifact "weights file\n(model)" as WTS <<cfg>>
   artifact "assets dir\n(code/config)" as ASSETS <<cfg>>
+  artifact "weights file\n(model)" as WTS <<cfg>>
   artifact "/cvmfs\n(bind if needed)" as CVMFS <<cfg>>
-  WRAP -[hidden]down-> WTS
-  WTS -[hidden]down-> ASSETS
-  ASSETS -[hidden]down-> CVMFS
   component "Apptainer\ncontainer" as APPT <<tools>>
+
+  WRAP   -[hidden]right-> ASSETS
+  WRAP   -[hidden]down->  WTS
+  ASSETS -[hidden]down->  CVMFS
+  WTS    -[hidden]right-> CVMFS
+
+  WTS   -[hidden]down-> APPT
   CVMFS -[hidden]down-> APPT
 }
 
-package "Scratch (results)" {
+package "Scratch (results)" as SCRRES {
   artifact "results.bin\n(IAOK header\n+ scores)" as RESBIN <<data>>
   artifact "metrics.meta\nkey=value lines" as META <<data>>
   artifact "stdout / stderr\n(log capture)" as LOGS <<data>>
-  RESBIN -[hidden]down-> META
-  META -[hidden]down-> LOGS
+  RESBIN -[hidden]right-> META
+  RESBIN -[hidden]down->  LOGS
+  META   -[hidden]down->  LOGS
 }
 
 ' =============================================================================
-' Wiring: enforce vertical stacking of the big blocks
+' Layout: use two columns so the diagram isn't a tall skinny strip
 ' =============================================================================
-PATHS -[hidden]down-> IMAGES
-REQBIN -[hidden]down-> WRAP
-LOGS -[hidden]down-> PRED
+CFG -[hidden]right-> EPIN
+CFG -[hidden]down-> STAGE
+EPIN -[hidden]down-> STAGE
+
+STAGE  -[hidden]down-> SCRREQ
+SCRREQ -[hidden]right-> RT
+
+SCRREQ -[hidden]down-> EPOUT
+RT     -[hidden]down-> SCRRES
+EPOUT  -[hidden]right-> SCRRES
 
 ' =============================================================================
 ' Wiring: data flow
@@ -170,7 +183,7 @@ INFER -down-> PRED : produces
 INFER -down-> PERF : produces
 
 RUN -down-> REQBIN : write request
-REQBIN -down-> APPT : --in planes.bin
+REQBIN -right-> APPT : --in planes.bin
 
 WRAP -down-> APPT : executed in\ncontainer
 WTS -down-> APPT : --weights
@@ -192,7 +205,7 @@ note bottom of INFER
   - all planes empty (all ADC == 0)
 end note
 
-note bottom of RUN
+note right of RUN
   Executes (schematic):
   apptainer exec --cleanenv
     --bind <assets>,<scratch>[,/cvmfs]
