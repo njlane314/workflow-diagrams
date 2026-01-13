@@ -6,11 +6,11 @@
 !pragma layout smetana
 
 top to bottom direction
-scale max 1100*1350
+scale max 1200*1700
 
 skinparam defaultFontSize 10
 skinparam nodesep 10
-skinparam ranksep 14
+skinparam ranksep 18
 skinparam padding 2
 
 !$INK     = "#111827"
@@ -37,6 +37,11 @@ skinparam ArrowColor $INK
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
 
+skinparam package<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
 skinparam component<<cfg>> {
   BackgroundColor #FEF3C7
   BorderColor $CFG
@@ -85,21 +90,27 @@ skinparam note {
 ' =============================================================================
 ' Configuration
 ' =============================================================================
-component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
-artifact "FHiCL pset\nInferenceProducer" as FCL <<cfg>>
+package "Configuration" <<cfg>> {
+  component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
+  artifact "FHiCL pset\nInferenceProducer" as FCL <<cfg>>
+  artifact "Models[]\nLabel/Arch\nWeights/Wrapper\nAssets" as MODELS <<cfg>>
+  artifact "ScratchDir\n(+ assets base)" as PATHS <<cfg>>
 
-artifact "Models[]\nLabel/Arch\nWeights/Wrapper\nAssets" as MODELS <<cfg>>
-artifact "ScratchDir\n(+ assets base)" as PATHS <<cfg>>
+  USER -down-> FCL : selects\nworkflow
+  FCL -[hidden]down-> MODELS
+  MODELS -[hidden]down-> PATHS
+}
 
 ' =============================================================================
 ' Inputs/outputs (event products)
 ' =============================================================================
-package "Event products" {
+package "Event products (input)" {
   artifact "ImageProducts \"NuSlice\"\nU/V/W ADC planes" as IMAGES <<data>>
+}
+
+package "Event products (output)" {
   artifact "InferencePredProduct\nper-model scores" as PRED <<data>>
   artifact "InferencePerfProduct\nper-model timing/RSS" as PERF <<data>>
-
-  IMAGES -[hidden]down-> PRED
   PRED -[hidden]down-> PERF
 }
 
@@ -109,24 +120,18 @@ package "Event products" {
 package "Inference stage" <<art>> {
   component "InferenceProducer\n(EDProducer)" as INFER <<art>>
   component "InferenceProduction\nrunInference(...)" as RUN <<tools>>
-  INFER -down-> RUN : call per model
+  INFER -down-> RUN : runInference\n(per model)
+  RUN -up..> INFER : Result{scores, perf}
 }
 
 ' =============================================================================
 ' External runtime + scratch artifacts
 ' =============================================================================
-package "Scratch I/O" {
+package "Scratch (request)" {
   artifact "planes.bin\n(CHW float32)\nU,V,W" as REQBIN <<data>>
-  artifact "results.bin\n(IAOK header\n+ scores)" as RESBIN <<data>>
-  artifact "metrics.meta\nkey=value lines" as META <<data>>
-  artifact "stdout / stderr\n(log capture)" as LOGS <<data>>
-  REQBIN -[hidden]down-> RESBIN
-  RESBIN -[hidden]down-> META
-  META -[hidden]down-> LOGS
 }
 
 package "External inference runtime" <<tools>> {
-  component "Apptainer\ncontainer" as APPT <<tools>>
   artifact "inference_wrapper.sh\n(bash)" as WRAP <<cfg>>
   artifact "weights file\n(model)" as WTS <<cfg>>
   artifact "assets dir\n(code/config)" as ASSETS <<cfg>>
@@ -134,42 +139,51 @@ package "External inference runtime" <<tools>> {
   WRAP -[hidden]down-> WTS
   WTS -[hidden]down-> ASSETS
   ASSETS -[hidden]down-> CVMFS
+  component "Apptainer\ncontainer" as APPT <<tools>>
+  CVMFS -[hidden]down-> APPT
+}
+
+package "Scratch (results)" {
+  artifact "results.bin\n(IAOK header\n+ scores)" as RESBIN <<data>>
+  artifact "metrics.meta\nkey=value lines" as META <<data>>
+  artifact "stdout / stderr\n(log capture)" as LOGS <<data>>
+  RESBIN -[hidden]down-> META
+  META -[hidden]down-> LOGS
 }
 
 ' =============================================================================
-' Wiring: config
+' Wiring: enforce vertical stacking of the big blocks
 ' =============================================================================
-USER -down-> FCL : selects\nworkflow
-FCL ..> INFER : PlanesTag,\nScratchDir,\nDefaultWrapper
-MODELS ..> INFER : per-model\nconfig
-PATHS ..> INFER : resolve\npaths
+PATHS -[hidden]down-> IMAGES
+REQBIN -[hidden]down-> WRAP
+LOGS -[hidden]down-> PRED
 
 ' =============================================================================
 ' Wiring: data flow
 ' =============================================================================
-IMAGES --> INFER : planes (U/V/W)
-INFER --> PRED : produces
-INFER --> PERF : produces
+FCL -down..> INFER : PlanesTag,\nScratchDir,\nDefaultWrapper
+MODELS -down..> INFER : per-model\nconfig
+PATHS -down..> INFER : resolve\npaths
 
-RUN --> REQBIN : write request
-REQBIN --> APPT : --in planes.bin
+IMAGES -down-> INFER : planes (U/V/W)
+INFER -down-> PRED : produces
+INFER -down-> PERF : produces
 
-WRAP --> APPT : executed in\ncontainer
-WTS --> APPT : --weights
-ASSETS --> APPT : path resolve\n+ bind
-CVMFS --> APPT : bind\n(optional)
+RUN -down-> REQBIN : write request
+REQBIN -down-> APPT : --in planes.bin
 
-APPT --> RESBIN : --out results.bin
-APPT --> META : --metrics
-APPT --> LOGS : redirect\nstdout/stderr
+WRAP -down-> APPT : executed in\ncontainer
+WTS -down-> APPT : --weights
+ASSETS -down-> APPT : path resolve\n+ bind
+CVMFS -down-> APPT : bind\n(optional)
 
-RESBIN --> RUN : read scores
-META --> RUN : parse perf
-LOGS ..> RUN : on failure\nread stderr
+APPT -down-> RESBIN : --out results.bin
+APPT -down-> META : --metrics
+APPT -down-> LOGS : redirect\nstdout/stderr
 
-RUN --> INFER : Result{scores, perf}
-INFER --> PRED : fill per_model
-INFER --> PERF : fill per_model
+RESBIN -up-> RUN : read scores
+META -up-> RUN : parse perf
+LOGS -up..> RUN : on failure\nread stderr
 
 note bottom of INFER
   Skip inference and write empty products if:
@@ -180,12 +194,15 @@ end note
 
 note bottom of RUN
   Executes (schematic):
-  apptainer exec --cleanenv --bind <assets>,<scratch>[,/cvmfs]\n
-    <container> /bin/bash <wrapper>\n
-    --in planes.bin --out results.bin --metrics metrics.meta\n
-    --W <width> --H <height> --arch <arch> --weights <weights>
+  apptainer exec --cleanenv
+    --bind <assets>,<scratch>[,/cvmfs]
+    <container> /bin/bash <wrapper>
+    --in planes.bin --out results.bin
+    --metrics metrics.meta
+    --W <width> --H <height>
+    --arch <arch> --weights <weights>
 
-  Then reads results.bin (IAOK/v1) + metrics.meta,\n
+  Then reads results.bin (IAOK/v1) + metrics.meta
   and cleans up scratch temp files.
 end note
 
