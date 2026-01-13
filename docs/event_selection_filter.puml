@@ -1,11 +1,11 @@
 @startuml
 ' =============================================================================
-' EventSelectionFilter analysis flow (portrait tuned)
+' EventSelectionFilter analysis flow (A4 portrait tuned)
 ' =============================================================================
 !pragma layout smetana
 
 top to bottom direction
-scale max 1100*1650
+scale max 1020*1820
 
 skinparam defaultFontSize 10
 skinparam nodesep 14
@@ -34,6 +34,7 @@ skinparam ArrowThickness 1.1
 skinparam ArrowColor $INK
 skinparam packageStyle rectangle
 skinparam componentStyle rectangle
+skinparam packagePadding 6
 
 skinparam component<<cfg>> {
   BackgroundColor #FEF3C7
@@ -41,6 +42,11 @@ skinparam component<<cfg>> {
   FontColor $INK
 }
 skinparam artifact<<cfg>> {
+  BackgroundColor #FEF3C7
+  BorderColor $CFG
+  FontColor $INK
+}
+skinparam package<<cfg>> {
   BackgroundColor #FEF3C7
   BorderColor $CFG
   FontColor $INK
@@ -68,6 +74,11 @@ skinparam component<<tools>> {
   FontColor $INK
 }
 
+skinparam package<<data>> {
+  BackgroundColor #F3F4F6
+  BorderColor $DATA
+  FontColor $INK
+}
 skinparam database<<data>> {
   BackgroundColor #F3F4F6
   BorderColor $DATA
@@ -88,16 +99,26 @@ skinparam note {
 ' =============================================================================
 ' Configuration
 ' =============================================================================
-component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
-artifact "FHiCL job config\nSelectionTool + AnalysisTools" as FCL <<cfg>>
+package "Run configuration" <<cfg>> {
+  component "Job launcher\nlar -c <job>.fcl" as USER <<cfg>>
+  artifact "FHiCL job config\nSelectionTool + AnalysisTools" as FCL <<cfg>>
+  USER -[hidden]down-> FCL
+}
+
+' =============================================================================
+' Inputs (event + reco products)
+' =============================================================================
+package "Inputs (event + reco)" <<data>> {
+  database "art::Event\n(run/subrun/event)" as EVENT <<data>>
+  artifact "PFParticle proxy\n+ associated Track/Vertex/Cluster" as PFP <<data>>
+  EVENT -[hidden]down-> PFP
+}
 
 ' =============================================================================
 ' art runtime + module
 ' =============================================================================
-package "art event processing" <<art>> {
+package "EventSelectionFilter (art module)" <<art>> {
   component "EventSelectionFilter\n(EDFilter module)" as FILTER <<art>>
-  component "TFileService\nROOT output" as TFS <<art>>
-  database "art::Event\n(run/subrun/event)" as EVENT <<data>>
 }
 
 ' =============================================================================
@@ -106,21 +127,25 @@ package "art event processing" <<art>> {
 package "Selection + analysis tools" <<tools>> {
   component "SelectionToolBase\n(NeutrinoSelection)" as SEL <<tools>>
   component "AnalysisToolBase\n(Default, Energy,\nTruth, ...)" as ANA <<tools>>
-  ' Keep the tools stacked to reduce horizontal spread/whitespace
   SEL -[hidden]down-> ANA
-}
-
-' =============================================================================
-' Inputs and intermediate data
-' =============================================================================
-package "Reco products" <<data>> {
-  artifact "PFParticle proxy\n+ associated Track/Vertex/Cluster" as PFP <<data>>
 }
 
 ' =============================================================================
 ' Output
 ' =============================================================================
-artifact "TTree output\nEventSelectionFilter + SubRun" as TREE <<data>>
+package "ROOT output" <<art>> {
+  component "TFileService\n(ROOT output)" as TFS <<art>>
+  artifact "TTree output\nEventSelectionFilter + SubRun" as TREE <<data>>
+  TFS -[hidden]down-> TREE
+}
+
+' =============================================================================
+' Layout: enforce a portrait "spine" (reduces horizontal spread on A4)
+' =============================================================================
+FCL   -[hidden]down-> EVENT
+PFP   -[hidden]down-> FILTER
+FILTER-[hidden]down-> SEL
+ANA   -[hidden]down-> TFS
 
 ' =============================================================================
 ' Relationships: configuration & startup
@@ -134,19 +159,12 @@ FCL ..> ANA : AnalysisTools\npsets
 ' Relationships: event loop
 ' =============================================================================
 EVENT -down-> FILTER : filter(art::Event)
-FILTER --> PFP : proxy::getCollection
-FILTER --> SEL : selectEvent(slice)
-FILTER --> ANA : analyseEvent\n+ analyseSlice
-FILTER --> TFS : creates\nTTrees
-TFS --> TREE : ROOT\noutput file
-
-' =============================================================================
-' Selection flow
-' =============================================================================
-PFP -down-> FILTER : BuildPFPMap\nAddDaughters
-FILTER -down-> SEL : neutrino slice
-SEL -down-> FILTER : selected flag
-FILTER -down-> ANA : per-slice\nanalysis
+PFP -down-> FILTER : proxy::getCollection\nBuildPFPMap + AddDaughters
+FILTER -down-> SEL : build slices\nselectEvent(slice)
+SEL -up-> FILTER : selected flag
+FILTER -down-> ANA : analyseEvent\n+ analyseSlice
+ANA -down-> TFS : fills\nTTrees
+TFS -down-> TREE : ROOT\noutput file
 
 note bottom of FILTER
   1) ResetTTree
