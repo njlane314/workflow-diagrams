@@ -6,12 +6,15 @@
 !pragma layout smetana
 
 top to bottom direction
-scale max 1100*1350
+' Portrait-friendly bounds for A4 @ 160 dpi (leave margin for page layout)
+scale max 1050*1700
 
 skinparam defaultFontSize 10
-skinparam nodesep 10
-skinparam ranksep 14
+' Slightly tighter horizontal spacing + a bit more vertical spacing
+skinparam nodesep 8
+skinparam ranksep 18
 skinparam padding 2
+skinparam noteMaxWidth 260
 
 !$INK     = "#111827"
 !$MUTED   = "#6B7280"
@@ -92,26 +95,35 @@ artifact "BadChannelFile\n(optional)" as BADCH <<cfg>>
 ' =============================================================================
 ' Inputs (event products + services)
 ' =============================================================================
-package "Inputs" {
-  artifact "Reco neutrino slice\nPFParticle → Slice → Hits\n(+ SpacePoints)" as RECO <<data>>
-  artifact "Wires (ROI)\nrecob::Wire" as WIRES <<data>>
-  artifact "MC inputs\nMCParticle + BackTracker\n(MC only)" as MC <<data>>
+package "Inputs" as INPUTS {
+  package "Event products" as EP {
+    artifact "Reco neutrino slice\nPFParticle → Slice → Hits\n(+ SpacePoints)" as RECO <<data>>
+    artifact "Wires (ROI)\nrecob::Wire" as WIRES <<data>>
+    artifact "MC inputs\nMCParticle + BackTracker\n(MC only)" as MC <<data>>
 
-  component "Geometry\n(wire pitch)" as GEO <<tools>>
-  component "DetectorClocks\n(TickPeriod)" as CLK <<tools>>
-  component "DetectorProperties\n(ConvertTicksToX)" as DETP <<tools>>
+    RECO -[hidden]down-> WIRES
+    WIRES -[hidden]down-> MC
+  }
 
-  RECO -[hidden]down-> WIRES
-  WIRES -[hidden]down-> MC
+  package "Services" as SVC {
+    component "Geometry\n(wire pitch)" as GEO <<tools>>
+    component "DetectorClocks\n(TickPeriod)" as CLK <<tools>>
+    component "DetectorProperties\n(ConvertTicksToX)" as DETP <<tools>>
+
+    GEO -[hidden]down-> CLK
+    CLK -[hidden]down-> DETP
+  }
+
+  EP -[hidden]down-> SVC
 }
 
 ' =============================================================================
 ' Image creation pipeline
 ' =============================================================================
-package "Image creation pipeline" <<art>> {
+package "Image creation pipeline" as PIPE <<art>> {
   component "ImageProducer\n(EDProducer)" as IMGPROD <<art>>
 
-  package "Helpers" <<tools>> {
+  package "Helpers" as HELPERS <<tools>> {
     component "ImageCentering\n(trimmed centroid\nfrom SP charge)" as CENTER <<tools>>
     component "SemanticClassifier\n(MC semantic labels)" as SEM <<tools>>
     component "ImageProduction\n(pixel builder)" as BUILD <<tools>>
@@ -123,13 +135,24 @@ package "Image creation pipeline" <<art>> {
   artifact "ImageProducts \"NuSlice\"\n3 planes U/V/W\nADC (+ semantic on MC)" as OUT <<data>>
   artifact "ImageDump TTree\n(optional)" as DUMP <<data>>
 
+  ' Stack inside the pipeline (avoid wide side-by-side placement)
+  IMGPROD -[hidden]down-> HELPERS
+  HELPERS -[hidden]down-> PIX
+  PIX -[hidden]down-> OUT
+  OUT -[hidden]down-> DUMP
+
   IMGPROD -down-> CENTER : compute\ncenter_world
   IMGPROD -down-> BUILD : build(...)
   BUILD -down-> PIX : filled images
-  PIX -down-> IMGPROD : pack planes
+  PIX -down-> OUT : pack planes
   IMGPROD -down-> OUT : produces
   IMGPROD ..> DUMP : optional\nDumpImages
 }
+
+' Layout anchors (portrait-friendly stacking)
+FCL -[hidden]down-> BADCH
+BADCH -[hidden]down-> INPUTS
+INPUTS -[hidden]down-> PIPE
 
 ' =============================================================================
 ' Wiring: config
@@ -141,26 +164,30 @@ BADCH ..> IMGPROD : filter\nbad channels
 ' =============================================================================
 ' Wiring: data + services
 ' =============================================================================
-RECO --> IMGPROD : neutrino slice\nhits + SP assoc
-WIRES --> BUILD : ROI +\nwire geometry
-RECO --> BUILD : slice-hit\nmasking
-DETP --> BUILD : ticks → x
+RECO -down-> IMGPROD : neutrino slice\nhits + SP assoc
+WIRES -down-> BUILD : ROI +\nwire geometry
+RECO -down-> BUILD : slice-hit\nmasking
+DETP -down-> BUILD : ticks → x
 
-MC --> SEM : MC particles\n+ daughters
-MC --> BUILD : BackTracker\nIDE fractions
-SEM --> BUILD : semantic_label\nvector (MC)
+MC -down-> SEM : MC particles\n+ daughters
+MC -down-> BUILD : BackTracker\nIDE fractions
+SEM -down-> BUILD : semantic_label\nvector (MC)
 
-GEO --> IMGPROD : wire pitch\n(U/V/W)
-CLK --> IMGPROD : tick period
-GEO --> BUILD : view mapping\n(U/V/W)
+GEO -down-> IMGPROD : wire pitch\n(U/V/W)
+CLK -down-> IMGPROD : tick period
+GEO -down-> BUILD : view mapping\n(U/V/W)
 
 note bottom of IMGPROD
-  1) Collect neutrino-slice hits
-     (primary ν PFParticle → Slice → Hits)
-  2) Remove bad channels (optional)
-  3) Build SP charge map, compute trimmed\n     charge-weighted 3D centroid
-  4) Project centroid to U/V/W and define\n     ImageProperties (origin/pixels)
-  5) Pack U/V/W planes into ImageProducts\n     label: "NuSlice"
+  Pipeline:
+  - Collect neutrino-slice hits
+    (primary ν PFParticle → Slice → Hits)
+  - Remove bad channels (optional)
+  - Build SP charge map →
+    trimmed charge-weighted 3D centroid
+  - Project centroid to U/V/W →
+    ImageProperties (origin/pixels)
+  - Pack planes into ImageProducts
+    label: "NuSlice"
   If no slice hits: produce empty NuSlice.
 end note
 
@@ -169,7 +196,8 @@ note bottom of BUILD
   - iterate wires, keep only hits in slice
   - iterate hit tick-range ∩ ROI ranges
   - ADC > threshold → set pixel (accumulate)
-  - MC only: label pixel via BackTracker\n    (max ideFraction; ambiguous if low)
+  - MC only: label pixel via BackTracker
+    (max ideFraction; ambiguous if low)
 end note
 
 @enduml
